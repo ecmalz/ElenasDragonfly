@@ -30,15 +30,15 @@ def aero(xd, xa, u, p, params):
     # v_app = dq - np.array([11,0,0])  # constant wind
 
     # calculate angle of attack and side slip (convert apparent velocity to body frame)
-    AoA       = -ca.mul(R[6:9].T,(v_app))/ca.mul(R[0:3].T,(v_app))
-    sslip     = ca.mul(R[3:6].T,(v_app))/ca.mul(R[0:3].T,(v_app))
+    AoA       = -ca.mtimes(R[6:9].T,(v_app))/ca.mtimes(R[0:3].T,(v_app))
+    sslip     = ca.mtimes(R[3:6].T,(v_app))/ca.mtimes(R[0:3].T,(v_app))
 
     # get moment coefficients dependent on AoA,sslip and speed
     CF, CM = aero_coeffs(AoA, sslip, v_app, w,  coeff , params)
 
-    F_aero = 0.5 * params['rho'] * params['sref'] * np.linalg.norm(v_app) * (ca.cross(CF[2]*v_app,R[3:6]) + CF[0]*(v_app) )
+    F_aero = 0.5 * params['rho'] * params['sref'] * ca.norm_2(v_app) * (ca.cross(CF[2]*v_app,R[3:6]) + CF[0]*(v_app) )
     reference_lengths = ca.vertcat([params['bref'], params['cref'], params['bref']])
-    M_aero = 0.5 * params['rho'] * params['sref'] *  np.linalg.norm(v_app)**2 * CM  * reference_lengths
+    M_aero = 0.5 * params['rho'] * params['sref'] *  ca.norm_2(v_app)**2 * CM  * reference_lengths
 
     F_drag   = -Drag * R[0:3]   # Drag in opposite x-direction of kite (Props)
     F_tether = q*xa             # Force of the tether at the kite
@@ -50,7 +50,7 @@ def aero(xd, xa, u, p, params):
     # Tether Drag
     # defined in + x direction , therefore minus sign
     C_tet        = 0.4
-    Tether_drag  =  - 1./8 * params['rho'] * params['tether_diameter'] * C_tet * ltet* np.linalg.norm(v_app)**2 * R[0:3]
+    Tether_drag  =  - 1./8 * params['rho'] * params['tether_diameter'] * C_tet * ltet* ca.norm_2(v_app)**2 * R[0:3]
     # Tether_drag  =  - 1./6 *  rho * params['tether_diameter'] * C_tet * ltet* np.linalg.norm(v_app)**2 * R[0:3]
 
     # mechanical data of winch
@@ -59,7 +59,7 @@ def aero(xd, xa, u, p, params):
     T_mech     = xa*ltet*r_winch
     outputs = {}
     outputs['v_app']    = v_app
-    outputs['speed']    = np.linalg.norm(v_app)
+    outputs['speed']    = ca.norm_2(v_app)
     outputs['windspeed_shear'] = windspeed_shear
     outputs['AoA']      = AoA
     outputs['sslip']    = sslip
@@ -68,16 +68,16 @@ def aero(xd, xa, u, p, params):
     outputs['CL']       = CF[2]
     outputs['CD']       = -CF[0]
     outputs['F_aero']   = F_aero
-    outputs['Lift_aero'] =  0.5 * params['rho'] * params['sref'] * np.linalg.norm(v_app) * (ca.cross(CF[2]*v_app,R[3:6]))
-    outputs['Drag_aero'] =  0.5 * params['rho'] * params['sref'] * np.linalg.norm(v_app) * (CF[0]*(v_app) )
+    outputs['Lift_aero'] =  0.5 * params['rho'] * params['sref'] * ca.norm_2(v_app) * (ca.cross(CF[2]*v_app,R[3:6]))
+    outputs['Drag_aero'] =  0.5 * params['rho'] * params['sref'] * ca.norm_2(v_app) * (CF[0]*(v_app) )
     outputs['F_drag']   = F_drag
     outputs['F_tether_scaled'] = F_tether   # This is scaled so Force/kg
     outputs['F_tether'] = F_tether*m
-    outputs['F_tether_norm'] = np.linalg.norm(F_tether*m)
+    outputs['F_tether_norm'] = ca.norm_2(F_tether*m)
     # outputs['mtether']  = m
     # outputs['F_gravity'] = F_gravity
     outputs['M_aero']   = M_aero
-    outputs['power']    = ca.mul((xa*ltet*m),dltet)
+    outputs['power']    = ca.mtimes((xa*ltet*m),dltet)
     outputs['Tether_drag'] = Tether_drag
     outputs['omega_mech']  = omega_mech
     outputs['T_mech']      = T_mech
@@ -114,7 +114,7 @@ def aero_coeffs(alpha, beta, v_app, omega,  phi , params):
     CFy_pqr = 0.
     CFz_pqr = 0.
 
-    omega_hat = omega/(2.*np.linalg.norm(v_app))
+    omega_hat = omega/(2.*ca.norm_2(v_app))
     omega_hat[0] *= params['bref']
     omega_hat[1] *= params['cref']
     omega_hat[2] *= params['bref']
@@ -150,7 +150,7 @@ def aero_coeffs(alpha, beta, v_app, omega,  phi , params):
     CMy = CMy_0 + CMy_pqr + CMy_surfs
     CMz = CMz_0 + CMz_pqr + CMz_surfs
 
-    CF_wind = ca.vertcat([CFx, CFy, CFz]) # in fixed frame
-    CM_cad = ca.vertcat([CMx, CMy, CMz])  # in body frame
+    CF_wind = ca.vertcat(CFx, CFy, CFz) # in fixed frame
+    CM_cad = ca.vertcat(CMx, CMy, CMz)  # in body frame
 
     return CF_wind, CM_cad

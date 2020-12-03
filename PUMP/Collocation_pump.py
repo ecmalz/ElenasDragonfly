@@ -19,8 +19,8 @@ def collocate(xd,xa,u,p,nk,d,dynamics, out_fun,out):
     # -----------------------------------------------------------------------------
 
     # Choose collocation points
-    tau_root = ca.collocationPoints(d,'radau')
-
+    tau_root = ca.collocation_points(d,'radau')
+    tau_root = ca.veccat(0, tau_root)
     # Size of the finite elements
     h = 1./nk
 
@@ -47,15 +47,15 @@ def collocate(xd,xa,u,p,nk,d,dynamics, out_fun,out):
         for r in range(d+1):
             if r != j:
                 L *= (tau-tau_root[r])/(tau_root[j]-tau_root[r])
-        lfcn = ca.SXFunction('lfcn', [tau],[L])
+        lfcn = ca.Function('lfcn', [tau],[L])
 
         # Evaluate the polynomial at the final time to get the coefficients of the continuity equation
-        [D[j]] = lfcn([1.0])
+        D[j] = lfcn(1.0)
 
         # Evaluate the time derivative of the polynomial at all collocation points to get the coefficients of the continuity equation
-        tfcn = lfcn.tangent()
+        tfcn = lfcn.jacobian()
         for r in range(d+1):
-            C[j][r], _ = tfcn([tau_root[r]])
+            C[j][r] = tfcn(tau_root[r],0)
 
 
     # --------------------------------------
@@ -105,7 +105,7 @@ def collocate(xd,xa,u,p,nk,d,dynamics, out_fun,out):
                 xp_jk += C[r,j]*V['Xd',k,r]
 
             # Add collocation equations to the NLP
-            [fk] = dynamics([V['Xd',k,j],xp_jk/h/V['tf'], V['XA',k,j-1], V['U',k], P['p',k,j]])
+            fk = dynamics(V['Xd',k,j],xp_jk/h/V['tf'], V['XA',k,j-1], V['U',k], P['p',k,j])
             coll_cstr.append(fk)
 
         # Get an expression for the state at the end of the finite element
@@ -122,7 +122,7 @@ def collocate(xd,xa,u,p,nk,d,dynamics, out_fun,out):
         # For plotting F_tether the point on :,0 is wrong and should not be printed. All outputs dependent on algebraic variables are discontinous. !!!
 
         for j in range(1,d+1):
-            [outk] = out_fun([V['Xd',k,j],V['XA',k,j-1], V['U',k], P['p',k,j]])
+            outk = out_fun(V['Xd',k,j],V['XA',k,j-1], V['U',k], P['p',k,j])
             for name in out.keys(): Output_list[name].append(out(outk)[name])
 
         Output = ca.struct_MX( [ ca.entry(name,expr=Output_list[name]) for name in Output_list.keys() ] )

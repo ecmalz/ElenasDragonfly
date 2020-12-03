@@ -5,6 +5,8 @@ based on direct Collocation_pump
 Python Version 2.7 / Casadi version 2.4.1
 - Author: Elena Malz, Chalmers 2016
 '''
+import sys
+sys.path.append(r"/usr/local/casadi-py27-v3.3.0")
 
 from casadi import *
 from casadi.tools import *
@@ -25,15 +27,12 @@ from values_pump import initial_params
 
 from aero_Rachel import aero
 from Collocation_pump import collocate
-import sys
-sys.path.append('dat')
 
 # For visualizing
 import time
 import json
 import zmq
 start_time = time.time()
-
 plt.close('all')
 t = SX.sym('t')
 
@@ -52,21 +51,21 @@ def initial_guess(t, rounds):
     x_cir = sqrt(l**2 - r**2)
     y_cir = r * cos(angle)
     z_cir = r * sin(angle)
-    init_pos_fun = SXFunction('init_pos',[angle],[mul(dcmInclination, veccat([x_cir, y_cir, z_cir]))])
+    init_pos_fun = Function('init_pos',[angle],[mtimes(dcmInclination, veccat(x_cir, y_cir, z_cir))])
     init_vel_fun = init_pos_fun.jacobian()
 
     ret = {}
-    ret['q']    = init_vel_fun([theta])[1]
-    ret['dq']   = init_vel_fun([theta])[0] * dtheta
-    ret['w']    = veccat([0.0, 0.0, dtheta])
+    ret['q']    = init_pos_fun(theta)
+    ret['dq']   = init_vel_fun(theta,0) * dtheta
+    ret['w']    = veccat(0.0, 0.0, dtheta)
 
-    norm_vel = np.linalg.norm(ret['dq'])
-    norm_pos = np.linalg.norm(ret['q'])
+    norm_vel = norm_2(ret['dq'])
+    norm_pos = norm_2(ret['q'])
 
     R0    = ret['dq']/norm_vel
     R2    = ret['q']/norm_pos
     R1    = cross(ret['q']/norm_pos,ret['dq']/norm_vel)
-    ret['R'] = vertcat([R0.T, R1.T, R2.T]).T
+    ret['R'] = vertcat(R0.T, R1.T, R2.T).T
     ret['dltet'] = 0 #[m/s]
     ret['ltet']  = l
     return ret
@@ -84,7 +83,7 @@ def get_Output(V,P):
 
 
 # -----------------------------------------------------------
-nk = 20     # Control discretization  - for a longer time horizon nk has to be high #(20/40/.. dividable by 4)
+nk = 40     # Control discretization  - for a longer time horizon nk has to be high #(20/40/.. dividable by 4)
 d  = 3      # number of polynomial points. Degree of interpolating polynomial yields integration order 5
 tf_init = 10.0    # End time initial guess
 ScalePower = 1.
@@ -155,11 +154,11 @@ p = struct_symSX([(
 
 
 _,outputs = aero(xd, xa, u, p, params)
-outputs['c']  = 0.5*(sum(q**2) - ltet**2 )     # algebraic contstraint
-outputs['dc'] = sum(q*dq) - ltet*dltet
+outputs['c']  = 0.5*(sum1(q**2) - ltet**2 )     # algebraic contstraint
+outputs['dc'] = sum1(q*dq) - ltet*dltet
 
 out = struct_SX( [entry(name, expr=outputs[name]) for name in outputs] )
-out_fun = SXFunction('outputs', [xd , xa, u, p], [out])
+out_fun = Function('outputs', [xd , xa, u, p], [out])
 
 # ----------------
 # AERODYNAMICS
@@ -170,34 +169,34 @@ out_fun = SXFunction('outputs', [xd , xa, u, p], [out])
 wx = skew(w[0],w[1],w[2]) # creating a skrew matrix of the angular velocities
 
 # Rdot = R*w (whereas w is in the skrew symmetric form)
-Rconstraint = reshape( xddot['dR'] - mul(xd['R'],wx),9,1 )
-TorqueEq    = mul(J,xddot['dw']) + (np.cross(w.T,mul(J,w).T).T - scale*(1-p['gam'])*u['T']) - p['gam']*M # J*wdot +w x J*w = T
+Rconstraint = reshape( xddot['dR'] - mtimes(xd['R'],wx),9,1 )
+TorqueEq    = mtimes(J,xddot['dw']) + (cross(w.T,mtimes(J,w).T).T - scale*(1-p['gam'])*u['T']) - p['gam']*M # J*wdot +w x J*w = T
 DragForce   = -Drag*R[0:3]  # Drag force in kite's x direction
 
 # ------------------------------------------------------------------------------------
 #  DYNAMICS of the system in impicit form + Create a structure for the Differential-Algebraic Equation
 # ------------------------------------------------------------------------------------
-res = vertcat([
+res = vertcat(
                xddot['dq']        - xd['dq'],\
                xddot['dcoeff']    - u['dcoeff'],\
                xddot['dDrag']     - u['dDrag'],\
                m*(xddot['ddq'][0]  + F_tether_scaled[0] - A*(1-p['gam'])*u['u',0]) -  p['gam']*Fa[0] - Tether_drag[0], \
                m*(xddot['ddq'][1]  + F_tether_scaled[1] - A*(1-p['gam'])*u['u',1]) -  p['gam']*Fa[1] - Tether_drag[1], \
                m*(xddot['ddq'][2]  + F_tether_scaled[2] - A*(1-p['gam'])*u['u',2]) -  p['gam']*Fa[2] - Tether_drag[2] + F_gravity   , \
-               xddot['dE'] - ScalePower*mul((xa*ltet),dltet), # Note: Don't forget the *m later \
+               xddot['dE'] - ScalePower*mtimes((xa*ltet),dltet), # Note: Don't forget the *m later \
                xddot['dltet']         - xd['dltet'], \
                xddot['ddltet']        - u['ddltet']
-              ])
+              )
 
 # P = (xa*q)*dl  = (xa *l) * dl = F_tether*speed, since xa is calculated for the tether scaled,
 # the final energy has to be multiplied by m as well.
 
-res.append(Rconstraint) # adding R dot to the dynamics
-res.append(TorqueEq)    # adding the torque - inertia-eq to the dynamics
-res.append(sum(xd['q']*xddot['ddq'])+sum(xd['dq']**2)-sum(xd['ltet']*xddot['ddltet'])-sum(xd['dltet']**2) ) # add tether length as constraint
+res = veccat(res,Rconstraint) # adding R dot to the dynamics
+res = veccat(res,TorqueEq)    # adding the torque - inertia-eq to the dynamics
+res = veccat(res,sum1(xd['q']*xddot['ddq'])+sum1(xd['dq']**2)-sum1(xd['ltet']*xddot['ddltet'])-sum1(xd['dltet']**2) ) # add tether length as constraint
 
 # System dynamics function (implicit formulation)
-dynamics = SXFunction('dynamics', [xd,xddot,xa,u,p],[res])
+dynamics = Function('dynamics', [xd,xddot,xa,u,p],[res])
 
 
 # --------------------------------
@@ -209,25 +208,25 @@ Lagrange_Regularisation = 0
 
 # input regularization
 for name in set(u.keys()):
-    Lagrange_Regularisation += p['weights',name][0]*mul((u[name]-p['ref',name]).T,u[name]-p['ref',name])
+    Lagrange_Regularisation += p['weights',name][0]*mtimes((u[name]-p['ref',name]).T,u[name]-p['ref',name])
 
 Lagrange_Regularisation += p['weights','AoA']*out['AoA']**2
 Lagrange_Regularisation += p['weights','sslip']*out['sslip']**2
 
 # Initialization tracking
 for name in set(xd.keys())- set(['R','E','Drag']):
-    Lagrange_Tracking += p['weights',name][0]*mul((xd[name]-p['ref',name]).T,xd[name]-p['ref',name])
+    Lagrange_Tracking += p['weights',name][0]*mtimes((xd[name]-p['ref',name]).T,xd[name]-p['ref',name])
 for k in range(9):
-    Lagrange_Tracking += reshape(np.linalg.norm(p['weights','R'])*mul((xd['R']-p['ref','R']).T,xd['R']-p['ref','R']),9,1)[k]
+    Lagrange_Tracking += reshape((p['weights','R'])*mtimes((xd['R']-p['ref','R']).T,xd['R']-p['ref','R']),9,1)[k]
 
-Lagrange_Tracking       = SXFunction('lagrange_track', [xd,xa,u,p],[Lagrange_Tracking])
-Lagrange_Regularisation = SXFunction('lagrange_reg', [xd,xa,u,p],[Lagrange_Regularisation])
+Lagrange_Tracking       = Function('lagrange_track', [xd,xa,u,p],[Lagrange_Tracking])
+Lagrange_Regularisation = Function('lagrange_reg', [xd,xa,u,p],[Lagrange_Regularisation])
 
 # -----------------------------------------------
 # DISCRETIZATION VIA COLLOCATION / SET UP NLP
 # -----------------------------------------------
 V, P, coll_cstr, continuity_cstr, Output = collocate(xd,xa,u,p,nk,d,dynamics, out_fun,out)
-Out_fun = MXFunction('Ofcn',[V,P],[Output])
+Out_fun = Function('Ofcn',[V,P],[Output])
 
 # --------------------------------------------------
 # ADD PATH CONSTRAINTS AND BOUNDARY CONDITIONS
@@ -245,8 +244,8 @@ F_tether_cstr   = [] # maximal allowed tether force
 # rotation matrix DCM has to be orthogonal at every stage. It should be valid R0'R0-I = 0 as well as R0'RN I=0.
 # However the constraints, to get in total only 9 constraints, not 18. (1,2)(1,3)(2,3) to the latter an the rest to the former equation.
 
-R0R0 = mul(V['Xd',0,0,'R'].T,V['Xd',0,0,'R'])   - np.eye(3)
-R0RN = mul(V['Xd',0,0,'R'].T,V['Xd',-1,-1,'R']) - np.eye(3)
+R0R0 = mtimes(V['Xd',0,0,'R'].T,V['Xd',0,0,'R'])   - np.eye(3)
+R0RN = mtimes(V['Xd',0,0,'R'].T,V['Xd',-1,-1,'R']) - np.eye(3)
 
 for k in [0,3,4,6,7,8]:
     DCM_cstr.append(R0R0[k])
@@ -266,15 +265,17 @@ for name in set(xd_names)-set(['R','E','q','dq']):
 periodic_cstr.append( V['Xd',0,0, 'q'] - V['Xd',-1,-1, 'q'] + V['Xd',0,0,'dq']*V['vlift'])
 periodic_cstr.append( V['Xd',0,0,'dq'] - V['Xd',-1,-1,'dq'] + V['Xd',0,0, 'q']*V['vlift'])
 
-periodic_cstr = veccat(periodic_cstr)
+periodic_cstr = veccat(*periodic_cstr)
 
 
 # -- TETHER LENGTH --- c = 0, at one time point (dc = 0 leads to LICQ problems)
-tether_cstr.append(sum(V['Xd',0,0,'q']**2) - V['Xd',0,0,'ltet']**2 )
+tether_cstr.append(sum1(V['Xd',0,0,'q']**2) - V['Xd',0,0,'ltet']**2 )
 
 # --- OUTPUT CONSTRAINTS ----
-output_constraints = Output(Out_fun([V,P])[0])
-
+# output_constraints = Output(Out_fun([V,P]))
+def get_Output(V,P):
+    return Output(Out_fun(V,P))
+output_constraints = get_Output(V,P)
 AoA_cstr.append(output_constraints['AoA_deg'])
 sslip_cstr.append(output_constraints['sslip_deg'])
 E_cstr.append( V['Xd',0,0, 'E'] )
@@ -296,7 +297,7 @@ g = struct_MX(
             ]
               )
 
-g_fun = MXFunction('g',[V,P],[g])
+g_fun = Function('g',[V,P],[g])
 
 
 # --------------------------------
@@ -306,10 +307,10 @@ Tracking       = 0
 Regularisation = 0
 
 for k in range(nk):  # V['XA',k,0] is not same time step as V['Xd',k,0] but same result
-    [ftrack] = Lagrange_Tracking([V['Xd',k,0], V['XA',k,0], V['U',k], P['p',k,0]])
+    ftrack = Lagrange_Tracking(V['Xd',k,0], V['XA',k,0], V['U',k], P['p',k,0])
     Tracking += ftrack
 
-    [freg] = Lagrange_Regularisation([V['Xd',k,0], V['XA',k,0], V['U',k], P['p',k,0]])
+    freg = Lagrange_Regularisation(V['Xd',k,0], V['XA',k,0], V['U',k], P['p',k,0])
     Regularisation += freg
 
 
@@ -330,12 +331,12 @@ Cost = (Tracking_Cost + Regularisation_Cost + Lift_Cost + SOSCFix)/float(nk) + E
 # Cost += P['tf_LM_regularization']*(V['tf']-P['tf_previous'])**2
 
 # Some functions for ploting the Cost
-lift_Cost_fun     = MXFunction('Lift_Cost', [V], [Lift_Cost/float(nk)] )
-Energy_Cost_fun   = MXFunction('Energy_Cost', [V,P], [Energy_Cost] )
-Tracking_Cost_fun = MXFunction('Tracking_Cost', [V,P], [Tracking_Cost/float(nk)])
-Reg_Cost_fun      = MXFunction('Regularisation_Cost', [V,P], [Regularisation_Cost/float(nk)])
+lift_Cost_fun     = Function('Lift_Cost', [V], [Lift_Cost/float(nk)] )
+Energy_Cost_fun   = Function('Energy_Cost', [V,P], [Energy_Cost] )
+Tracking_Cost_fun = Function('Tracking_Cost', [V,P], [Tracking_Cost/float(nk)])
+Reg_Cost_fun      = Function('Regularisation_Cost', [V,P], [Regularisation_Cost/float(nk)])
 
-totCost_fun       = MXFunction('Cost', [V,P], [Cost])
+totCost_fun       = Function('Cost', [V,P], [Cost])
 
 # --------------
 # BOUNDS
@@ -359,7 +360,8 @@ ubg['sslip_cstr'] =  30
 # -------------------
 # INITIALIZE STATES
 # -------------------
-tau_roots = collocationPoints(d, 'radau')
+tau_roots = collocation_points(d,'radau')
+tau_roots = veccat(0, tau_roots)
 
 for k in range(nk):
     for j in range(d+1):
@@ -428,15 +430,15 @@ vars_init['tf']      = vars_lb['tf'] = vars_ub['tf']  = p_num['tf']
 ## --------------------
 
 # Allocate an NLP solver
-nlp = MXFunction('nlp', nlpIn(x=V, p=P),nlpOut(f=Cost,g=g))
-
+# nlp = Function('nlp', nlpIn(x=V, p=P),nlpOut(f=Cost,g=g))
+nlp = {'x':V, 'p':P, 'f' : Cost, 'g' :g}
 # Set options
 opts = {}
 opts["expand"] = True
-opts["max_iter"] = 1000
-opts["tol"] = 1e-8
-opts["linear_solver"] = 'ma27'
-solver = NlpSolver("solver", "ipopt", nlp, opts)
+opts["ipopt.max_iter"] = 1000
+opts["ipopt.tol"] = 1e-8
+opts["ipopt.linear_solver"] = 'ma27'
+solver = nlpsol("solver", "ipopt", nlp, opts)
 
 
 # ------------------------------------------
@@ -466,15 +468,15 @@ for gamma_value in list(np.arange(0,1.+Homotopy_step,Homotopy_step)):
     arg['p']   = p_num   # hand over the parameters to the solver
 
     # Solve the problem
-    print '   '
-    print 'Solve for gamma:   ',p_num['p',0,0,'gam'] #PARAMETER value for homotopy
-    print '   '
-    res = solver(arg)
-    stats = solver.getStats()
+    print ('   ')
+    print ('Solve for gamma:   ',p_num['p',0,0,'gam']) #PARAMETER value for homotopy
+    print ('   ')
+    res = solver(**arg)
+    stats = solver.stats()
     assert stats['return_status'] in ['Solve_Succeeded']
-    print '   '
-    print 'Solved for gamma:  ',p_num['p',0,0,'gam'] #PARAMETER value for homotopy
-    print '   '
+    print ('   ')
+    print ('Solved for gamma:  ',p_num['p',0,0,'gam'] )#PARAMETER value for homotopy
+    print ('   ')
 
     arg['lam_x0'] = res['lam_x']
 
@@ -494,15 +496,15 @@ vars_init1 = opt
 # -----------------------------------------------------------------------------
 # Using homopty for changing cost function.
 # Shifting from tracking to power optimisation
-print "#####################################################"
-print "#####################################################"
-print "#####################################################"
-print "#########                                   #########"
-print "#########    STARTING POWER OPTIMIZATION    #########"
-print "#########                                   #########"
-print "#####################################################"
-print "#####################################################"
-print "#####################################################"
+print ("#####################################################")
+print ("#####################################################")
+print ("#####################################################")
+print ("#########                                   #########")
+print ("#########    STARTING POWER OPTIMIZATION    #########")
+print ("#########                                   #########")
+print ("#####################################################")
+print ("#####################################################")
+print ("#####################################################")
 
 arg['x0'] = vars_init
 
@@ -525,8 +527,8 @@ for toggle_value in toggle_table:
     arg['p']  = p_num
     external_extra_text = ['POWER OPTIMIZATION; TOGGLE %.1f - FIXED TIME' % toggle_value]
     # Solve the problem
-    print "Solve for toggle =", toggle_value
-    res = solver(arg)
+    print ("Solve for toggle =", toggle_value)
+    res = solver(**arg)
 
     # Retrieve the solution, re-assign as new guess
     arg['x0']            = res['x']
@@ -535,13 +537,13 @@ for toggle_value in toggle_table:
     arg['p']             = p_num
 
     #Report some stuff...
-    print "Solved for toggle =", toggle_value, " Period = ", float(V(res['x'])['tf'])
+    print ("Solved for toggle =", toggle_value, " Period = ", float(V(res['x'])['tf']))
 
 
 
 opt = V(res['x'])
 
-outputs = Output(Out_fun([V,P])[0])
+outputs = Output(Out_fun(V,P))
 val_init = get_Output(vars_init,p_num)
 val_opt = get_Output(opt,p_num)
 
@@ -555,15 +557,15 @@ val_opt = get_Output(opt,p_num)
 # switch = raw_input("free final time? (j/n)\n\n")
 # if switch == 'j':
 
-print "#####################################################"
-print "#####################################################"
-print "#####################################################"
-print "#########                                   #########"
-print "#########          OPEN FINAL TIME          #########"
-print "#########                                   #########"
-print "#####################################################"
-print "#####################################################"
-print "#####################################################"
+print ("#####################################################")
+print ("#####################################################")
+print ("#####################################################")
+print ("#########                                   #########")
+print ("#########          OPEN FINAL TIME          #########")
+print ("#########                                   #########")
+print ("#####################################################")
+print ("#####################################################")
+print ("#####################################################")
 
 # update initial guess with NLP solution
 vars_init = opt
@@ -601,7 +603,7 @@ arg['p']  = p_num
 external_extra_text = ['RELEASE TIME - final solve']
 
 # Solve
-res = solver(arg)
+res = solver(**arg)
 
 #------------------------------
 # RECEIVE SOLUTION  & SAVE DATA
@@ -609,7 +611,7 @@ res = solver(arg)
 opt = V(res['x'])
 
 
-outputs = Output(Out_fun([V,P])[0])
+outputs = Output(Out_fun(V,P))
 val_init = get_Output(vars_init,p_num)
 val_opt = get_Output(opt,p_num)
 
@@ -620,11 +622,11 @@ with open('init.dat','w') as f:
     pickle.dump((val_init, vars_init1, nk, d),f)
 
 
-[E_final]   = Energy_Cost_fun([opt,p_num])
-[Lifting]   = lift_Cost_fun([opt])
-[Tracking]  = Tracking_Cost_fun([opt,p_num])
-[Cost]      = totCost_fun([opt,p_num])
-[Reg]       = Reg_Cost_fun([opt,p_num])
+E_final  = Energy_Cost_fun(opt,p_num)
+Lifting  = lift_Cost_fun(opt)
+Tracking = Tracking_Cost_fun(opt,p_num)
+Cost     = totCost_fun(opt,p_num)
+Reg      = Reg_Cost_fun(opt,p_num)
 
 with open('cost.dat', 'w') as f:
     pickle.dump((E_final, Lifting, Tracking, Cost, Reg), f)
@@ -633,12 +635,12 @@ with open('cost.dat', 'w') as f:
 # --------------------------------------
 # PRINT OUT ....
 # --------------------------------------
-print "\n\n\n"
-print "Average Power = ", opt['Xd',-1,-1,'E']*m/float(ScalePower)/opt['tf'], "  Orbit period = ", opt['tf']
+print ("\n\n\n")
+print ("Average Power = ", opt['Xd',-1,-1,'E']*m/float(ScalePower)/opt['tf'], "  Orbit period = ", opt['tf'])
 
 end_time = time.time()
 time_taken = end_time - start_time
-print time_taken
+print (time_taken)
 
 # --------------------------------------
 # Check cost function....
@@ -647,11 +649,11 @@ print time_taken
 plt.ion()
 plt.figure('Cost function weighting')
 ax = plt.subplot(111)
-track0 = ax.bar(1,np.array(Tracking),0.1, color = 'r')
-regu0 = ax.bar(1+0.1,np.array(Reg),0.1, color = 'b')
-lifting0 = ax.bar(1+0.2,np.array(Lifting),0.1, color = 'k')
-energy0 = ax.bar(1+0.3,np.array(E_final*-1),0.1, color = 'g')
-cost0 = ax.bar(1+0.4,np.array(Cost),0.1, color = 'y')
+track0 = ax.bar(1,np.array(Tracking)[0],0.1, color = 'r')
+regu0 = ax.bar(1+0.1,np.array(Reg)[0],0.1, color = 'b')
+lifting0 = ax.bar(1+0.2,np.array(Lifting)[0],0.1, color = 'k')
+energy0 = ax.bar(1+0.3,np.array(E_final*-1)[0],0.1, color = 'g')
+cost0 = ax.bar(1+0.4,np.array(Cost)[0],0.1, color = 'y')
 ax.legend((track0,regu0,lifting0,energy0,cost0), (('tracking','regularisation','lifting','energy*-1','total cost')))
 plt.grid('on')
 # ax.set_ylim([0,3000])
@@ -704,13 +706,13 @@ plt.show()
 # [N_dgopt, sv, _, _, zeros]     = null(dgopt[0],V.shape)                       # compute nullspace
 #
 # # LICQ
-# print 'LICQ_check; smallest singular value', sv[-1], 'biggest sv',  sv[0]
+# print ('LICQ_check; smallest singular value', sv[-1], 'biggest sv',  sv[0]
 #
 # # SOSC
-# redH        = mul([N_dgopt.T, Hopt, N_dgopt])              # compute reduced hessian
+# redH        = mtimes([N_dgopt.T, Hopt, N_dgopt])              # compute reduced hessian
 # [eigs,eigv] = np.linalg.eig(redH)
 #
-# print 'Eigenvalues: ' , eigs  # Eigenvalues should be >0 in order to fullfill SOSC
-# print 'Lift variable', opt['vlift']
+# print ('Eigenvalues: ' , eigs  # Eigenvalues should be >0 in order to fullfill SOSC
+# print ('Lift variable', opt['vlift']
 #
-# print np.max(val_opt['power'])- np.min(val_opt['power'])
+# print (np.max(val_opt['power'])- np.min(val_opt['power'])
