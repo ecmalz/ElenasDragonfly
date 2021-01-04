@@ -1,9 +1,11 @@
 '''
 Collected parameters of the drag Kite system
-Python Version 2.7 / Casadi version 2.4.1
-- Author: Elena Malz, Chalmers 2016
+Python Version 2.7 / Casadi version 3.3.0
+-
+Author: Elena Malz, elena@malz.me
+Chalmers 2016, (updated 2020 from casadi 2.4.1 to 3.3.0 in 2020)
+-
 '''
-
 from collections import OrderedDict
 import numpy as np
 from numpy import pi
@@ -11,8 +13,9 @@ from numpy import pi
 def initial_params():
     params = OrderedDict()
 
+    params['ScalePower'] =  1e-3
     # kite mass [kg]
-    params['mK'] = 1100.0   # 50 * 25 [AWE book p.15]
+    params['mK'] = 300.0   # 50 * 25 [AWE book p.15]
     # acceleration due to gravity [m/s^]
     params['g'] = 9.81
     # density of air [kg/m^3]
@@ -25,22 +28,22 @@ def initial_params():
     # tether natural length [m]
     params['l'] = 300.
     # tether mass [kg]
-    params['mT'] = 50.
+    params['mT'] = 10.
     # aerodynamic reference area [m^2]
-    params['sref'] = 55.
+    params['sref']  = 20.
     # aerodynamic reference span [m]
-    params['bref'] = 30.
+    params['bref']  = 21.    # aerodynamic reference span [m]
     # aerodynamic reference chord [m]
-    params['cref'] = params['sref']/params['bref']
+    params['cref']  = params['sref']/params['bref'] # aerodynamic reference chord [m]
     # reference wind at ground [m/s]
-    params['wind0'] = 6.0
+    params['wind0'] = 8.0
     # tether diameter [m]
-    params['tether_diameter'] = 0.025
+    params['tether_diameter'] = 0.013
     # altitude where wind shear starts
     params['windShearRefAltitude'] = 5.
 
 
-    # parameters aerodynamic model rachel
+    # # parameters aerodynamic model rachel
     params['alphaMaxDeg']   = 10.0 # deg. separation indicated somewhere between 12 and 15 degrees.
     params['CL0']           = 0.3455
     params['CLalpha']       = 0.04808 #* 180. / pi # per rad

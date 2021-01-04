@@ -2,9 +2,21 @@
 MAIN Code to run the optimisation of a drag mode kite system
 based on direct Collocation
 
-Python Version 2.7 / Casadi version 2.4.1
-- Author: Elena Malz, Chalmers 2016
+Python Version 2.7 / Casadi version 3.5.5
+-
+Author: Elena Malz, elena@malz.me
+Chalmers, Goeteborg Sweden, 2017, (2020 updated from casadi 2.4.1 to 3.5.5)
+-
 '''
+
+from sys import path
+import os
+casadi_path = r"/Users/elena/Documents/Python/packages/casadi-osx-py27-v3.5.5"
+if not os.path.exists(casadi_path):
+    print('Casadi package path is wrong!')
+    sys.exit()
+
+path.append(casadi_path)
 from casadi import *
 from casadi.tools import *
 
@@ -12,20 +24,20 @@ import numpy as NP
 import matplotlib.pyplot as plt
 from scipy.linalg import logm, expm
 
-import mpl_toolkits.mplot3d as a3
+#import mpl_toolkits.mplot3d as a3
 import matplotlib.colors as colors
 import pylab as pl
 import scipy as sp
-from values_dragonfly_small import initial_params
-from aero_Dragonfly_damp import aero
+from parameters_drag import initial_params
+from aero_drag import aero
 # from aero_Dragonfly_Rachel import aero
 
-from Collocation import collocate
+from collocation_drag import collocate
 
 # For visualizing
 import time
-import json
-import zmq
+#import json
+#import zmq
 start_time = time.time()
 
 
@@ -45,21 +57,21 @@ def initial_guess(t):
     x_cir = sqrt(l**2 - r**2)
     y_cir = r * cos(angle)
     z_cir = r * sin(angle)
-    init_pos_fun = SXFunction('init_pos',[angle],[mul(dcmInclination, veccat([x_cir, y_cir, z_cir]))])
+    init_pos_fun = Function('init_pos',[angle],[mtimes(dcmInclination, veccat(x_cir, y_cir, z_cir))])
     init_vel_fun = init_pos_fun.jacobian()
 
     ret = {}
-    ret['q']    = init_vel_fun([theta])[1]
-    ret['dq']   = init_vel_fun([theta])[0] * dtheta
-    ret['w']    = veccat([0.0, 0.0, dtheta])
+    ret['q']    = init_pos_fun(theta)
+    ret['dq']   = init_vel_fun(theta,0) * dtheta
+    ret['w']    = veccat(0.0, 0.0, dtheta)
 
-    norm_vel = np.linalg.norm(ret['dq'])
-    norm_pos = np.linalg.norm(ret['q'])
+    norm_vel = norm_2(ret['dq'])
+    norm_pos = norm_2(ret['q'])
 
     R0    = ret['dq']/norm_vel
     R2    = ret['q']/norm_pos
     R1    = cross(ret['q']/norm_pos,ret['dq']/norm_vel)
-    ret['R'] = vertcat([R0.T, R1.T, R2.T]).T
+    ret['R'] = vertcat(R0.T, R1.T, R2.T).T
     return ret
 
 def skew(a,b,c):
@@ -70,7 +82,7 @@ def skew(a,b,c):
     return d
 
 def get_Output(V,P):
-    return outputs(Out_fun([V,P])[0])
+    return outputs(Out_fun(V,P))
 
 
 
@@ -146,12 +158,12 @@ p = struct_symSX([(
                  )])
 
 _,outputs = aero(xd, xa, p, params)
-outputs['c']  = ( sum(q**2) - l**2 )
-outputs['dc'] = sum(q*dq)
+outputs['c']  = ( sum1(q**2) - l**2 )
+outputs['dc'] = sum1(q*dq)
 
 
 out = struct_SX( [entry(name, expr=outputs[name]) for name in outputs] )
-out_fun = SXFunction('outputs', [xd , xa, p], [out])
+out_fun = Function('outputs', [xd , xa, p], [out]) # Has been SXFunction  in casadi 2
 
 # -------------
 # AERODYNAMICS
@@ -165,35 +177,35 @@ wx = skew(w[0],w[1],w[2]) # creating a skrew matrix of the angular velocities
 
 
 # Rdot = R*w (whereas w is in the skrew symmetric form)
-Rconstraint = reshape( xddot['dR'] - mul(xd['R'],wx),9,1 ) # J*wdot +w x J*w = T
-TorqueEq = mul(J,xddot['dw']) + (np.cross(w.T,mul(J,w).T).T - scale*(1-p['gam'])*u['T']) - p['gam']*M
+Rconstraint = reshape( xddot['dR'] - mtimes(xd['R'],wx),9,1 ) # J*wdot +w x J*w = T
+TorqueEq = mtimes(J,xddot['dw']) + (cross(w.T,mtimes(J,w).T).T - scale*(1-p['gam'])*u['T']) - p['gam']*M
 DragForce = -Drag*R[0:3]
 
 # ------------------------------------------------------------------------------------
 #  DYNAMICS of the system - Create a structure for the Differential-Algebraic Equation
 # ------------------------------------------------------------------------------------
-res = vertcat([
+res = vertcat(
                xddot['dq']        - xd['dq'],\
                xddot['dcoeff']    - u['dcoeff'],\
                xddot['dDrag']     - u['dDrag'],\
                m*(xddot['ddq'][0]  + F_tether_scaled[0] - A*(1-p['gam'])*u['u',0]) -  p['gam']*Fa[0] - F_drag[0] - Tether_drag[0], \
                m*(xddot['ddq'][1]  + F_tether_scaled[1] - A*(1-p['gam'])*u['u',1]) -  p['gam']*Fa[1] - F_drag[1] - Tether_drag[1], \
                m*(xddot['ddq'][2]  + F_tether_scaled[2] - A*(1-p['gam'])*u['u',2]) -  p['gam']*Fa[2] - F_drag[2] - Tether_drag[2]+ F_gravity   , \
-               xddot['dE'] - ScalePower*mul(F_drag.T,dq)
-              ])
+               xddot['dE'] - ScalePower*mtimes(F_drag.T,dq)
+              )
 
 
 # adding R dot to the dynamics
-res.append(Rconstraint) # reshape matrix to a list
+res = veccat(res,Rconstraint) # reshape matrix to a list
 
 # adding the torque - inertia-eq to the dynamics
-res.append(TorqueEq)
+res = veccat(res,TorqueEq)
 
 # add tether length as constraint
-res.append(sum(xd['q']*xddot['ddq'])+sum(xd['dq']**2))
+res = veccat(res, sum1(xd['q']*xddot['ddq'])+sum1(xd['dq']**2))
 
 # System dynamics function (implicit formulation)
-dynamics = SXFunction('dynamics', [xd,xddot,xa,u,p],[res])
+dynamics = Function('dynamics', [xd,xddot,xa,u,p],[res])
 
 
 # --------------------------------
@@ -205,27 +217,27 @@ Lagrange_Regularisation = 0
 
 # input regularization
 for name in set(u.keys()):
-    Lagrange_Regularisation += p['weights',name][0]*mul((u[name]-p['ref',name]).T,u[name]-p['ref',name])
+    Lagrange_Regularisation += p['weights',name][0]*mtimes((u[name]-p['ref',name]).T,u[name]-p['ref',name])
 
 Lagrange_Regularisation += p['weights','AoA']*out['AoA']**2
-# Lagrange_Regularisation += (1 + mul(xd['R'][:,2].T,xd['q'] / sqrt(mul(xd['q'].T,xd['q']))))
+# Lagrange_Regularisation += (1 + mtimes(xd['R'][:,2].T,xd['q'] / sqrt(mtimes(xd['q'].T,xd['q']))))
 
 # Initialization tracking
 for name in set(xd.keys())- set(['R','E','Drag']):
-    Lagrange_Tracking += p['weights',name][0]*mul((xd[name]-p['ref',name]).T,xd[name]-p['ref',name])
+    Lagrange_Tracking += p['weights',name][0]*mtimes((xd[name]-p['ref',name]).T,xd[name]-p['ref',name])
 for k in range(9):
-    Lagrange_Tracking += reshape(np.linalg.norm(p['weights','R'])*mul((xd['R']-p['ref','R']).T,xd['R']-p['ref','R']),9,1)[k]
+    Lagrange_Tracking += reshape(p['weights','R'][0]*mtimes((xd['R']-p['ref','R']).T,xd['R']-p['ref','R']),9,1)[k]
 
 
-Lagrange_Tracking       = SXFunction('lagrange_track', [xd,xa,u,p],[Lagrange_Tracking])
-Lagrange_Regularisation = SXFunction(  'lagrange_reg', [xd,xa,u,p],[Lagrange_Regularisation])
+Lagrange_Tracking       = Function('lagrange_track', [xd,xa,u,p],[Lagrange_Tracking])
+Lagrange_Regularisation = Function(  'lagrange_reg', [xd,xa,u,p],[Lagrange_Regularisation])
 
 # -----------------------------
 # DISCRETIZATION / SET UP NLP
 # -----------------------------
 
 V, P, coll_cstr, continuity_cstr, Output = collocate(xd,xa,u,p,nk,d,dynamics, out_fun,out)
-Out_fun = MXFunction('Ofcn',[V,P],[Output])
+Out_fun = Function('Ofcn',[V,P],[Output])
 
 # ADD PATH CONSTRAINTS AND BOUNDARY CONDITIONS
 
@@ -242,8 +254,8 @@ sslip_cstr      = [] # limit side slip
 # rotation matrix DCM has to be orthogonal at every stage. It should be valid R0'R0-I = 0 as well as R0'RN I=0.
 # However the constraints, to get in total only 9 constraints, not 18. (1,2)(1,3)(2,3) to the latter an the rest to the former equation.
 
-R0R0 = mul(V['Xd',0,0,'R'].T,V['Xd',0,0,'R'])   - np.eye(3)
-R0RN = mul(V['Xd',0,0,'R'].T,V['Xd',-1,-1,'R']) - np.eye(3)
+R0R0 = mtimes(V['Xd',0,0,'R'].T,V['Xd',0,0,'R'])   - np.eye(3)
+R0RN = mtimes(V['Xd',0,0,'R'].T,V['Xd',-1,-1,'R']) - np.eye(3)
 
 for k in [0,3,4,6,7,8]:
     DCM_cstr.append(R0R0[k])
@@ -263,14 +275,14 @@ for name in set(xd_names)-set(['R','E','q','dq']):
 periodic_cstr.append( V['Xd',0,0, 'q'] - V['Xd',-1,-1, 'q'] + V['Xd',0,0,'dq']*V['vlift'])
 periodic_cstr.append( V['Xd',0,0,'dq'] - V['Xd',-1,-1,'dq'] + V['Xd',0,0, 'q']*V['vlift'])
 
-periodic_cstr = veccat(periodic_cstr)
+periodic_cstr = veccat(*periodic_cstr)
 
 
 # -- TETHER LENGTH --- c = 0, dc = 0 at one time point
-tether_cstr.append(sum(V['Xd',0,0,'q']**2) - l**2 )
+tether_cstr.append(sum1(V['Xd',0,0,'q']**2) - l**2 )
 
 # --- OUTPUT CONSTRAINTS ----
-output_constraints = Output(Out_fun([V,P])[0])
+output_constraints = Output(Out_fun(V,P))
 
 AoA_cstr.append(output_constraints['AoA_deg'])
 sslip_cstr.append(output_constraints['sslip_deg'])
@@ -297,10 +309,10 @@ h = struct_MX([
 cstr_struct = struct_MX([entry('g', expr = g, struct = g),
                          entry('h', expr = h,  struct = h)])
 
-gh = vertcat([g,h])
+gh = vertcat(g,h)
 gh = cstr_struct(gh)
-g_fun = MXFunction('g',[V,P],[g])
-h_fun = MXFunction('h',[V,P],[h])
+g_fun = Function('g',[V,P],[g])
+h_fun = Function('h',[V,P],[h])
 
 # --------------------------------
 # Objective function
@@ -309,10 +321,10 @@ Tracking       = 0
 Regularisation = 0
 
 for k in range(nk):  # V['XA',k,0] is not same time step as V['Xd',k,0] but same result
-    [ftrack] = Lagrange_Tracking([V['Xd',k,0], V['XA',k,0], V['U',k], P['p',k,0]])
+    ftrack = Lagrange_Tracking(V['Xd',k,0], V['XA',k,0], V['U',k], P['p',k,0])
     Tracking += ftrack
 
-    [freg] = Lagrange_Regularisation([V['Xd',k,0], V['XA',k,0], V['U',k], P['p',k,0]])
+    freg = Lagrange_Regularisation(V['Xd',k,0], V['XA',k,0], V['U',k], P['p',k,0])
     Regularisation += freg
 
 
@@ -337,12 +349,12 @@ Cost = (Tracking_Cost + Regularisation_Cost + Lift_Cost + SOSCFix)/float(nk) + E
 
 # ------ Plot Cost ------
 
-lift_Cost_fun     = MXFunction('Lift_Cost', [V], [Lift_Cost/float(nk)] )
-Energy_Cost_fun   = MXFunction('Energy_Cost', [V,P], [Energy_Cost] )
-Tracking_Cost_fun = MXFunction('Tracking_Cost', [V,P], [Tracking_Cost/float(nk)])
-Reg_Cost_fun      = MXFunction('Regularisation_Cost', [V,P], [Regularisation_Cost/float(nk)])
+lift_Cost_fun     = Function('Lift_Cost', [V], [Lift_Cost/float(nk)] )
+Energy_Cost_fun   = Function('Energy_Cost', [V,P], [Energy_Cost] )
+Tracking_Cost_fun = Function('Tracking_Cost', [V,P], [Tracking_Cost/float(nk)])
+Reg_Cost_fun      = Function('Regularisation_Cost', [V,P], [Regularisation_Cost/float(nk)])
 
-totCost_fun       = MXFunction('Cost', [V,P], [Cost])
+totCost_fun       = Function('Cost', [V,P], [Cost])
 
 
 
@@ -366,7 +378,8 @@ ubg['h','sslip_cstr'] =  30
 # --------------
 # INITIALIZE STATES
 # -------------
-tau_roots = collocationPoints(d, 'radau')
+tau_roots = collocation_points(d, 'radau')
+tau_roots = veccat(0, tau_roots)
 
 for k in range(nk):
     for j in range(d+1):
@@ -378,7 +391,7 @@ for k in range(nk):
         vars_init['Xd',k,j,'w']  = guess['w']
         vars_init['Xd',k,j,'R']  = guess['R']
 
-# print  mul(vars_init["Xd",0,0,'R'].T,vars_init["Xd",0,0,'R'])
+# print  mtimes(vars_init["Xd",0,0,'R'].T,vars_init["Xd",0,0,'R'])
 # print 'det:  ', np.linalg.det(vars_init["Xd",0,0,'R'])
 
 vars_lb['Xd',:,:,'q',2] = params['windShearRefAltitude']
@@ -434,20 +447,23 @@ vars_init['tf'] =  vars_lb['tf'] = vars_ub['tf']  = p_num['tf']
 ## --------------------
 
 # Allocate an NLP solver
-nlp = MXFunction('nlp', nlpIn(x=V, p=P),nlpOut(f=Cost,g=gh))
+#nlp = MXFunction('nlp', nlpIn(x=V, p=P),nlpOut(f=Cost,g=gh))
+nlp = {'x':V, 'p':P, 'f':Cost, 'g':gh}
+
 
 
 # Set options
 opts = {}
 opts["expand"] = True
-opts["max_iter"] = 1000
-opts["tol"] = 1e-8
-opts["linear_solver"] = 'ma27'
+opts["ipopt.max_iter"] = 1000
+opts["ipopt.tol"] = 1e-8
+#opts["ipopt.linear_solver"] = 'ma27'
 #opts["linear_solver"] = 'ma57'  # not really working
 #opts["linear_solver"] = 'ma86' # fine but has troubles with final solve
 
 
-solver = NlpSolver("solver", "ipopt", nlp, opts)
+#solver = NlpSolver("solver", "ipopt", nlp, opts)
+solver = nlpsol("solver", "ipopt", nlp, opts)
 
 
 # ------------------------------------------
@@ -482,8 +498,8 @@ for gamma_value in list(np.arange(0,1.+Homotopy_step,Homotopy_step)):
     print '   '
     print 'Solve for gamma:   ',p_num['p',0,0,'gam'] #PARAMETER value for homotopy
     print '   '
-    res = solver(arg)
-    stats = solver.getStats()
+    res = solver(**arg)
+    stats = solver.stats()
     assert stats['return_status'] in ['Solve_Succeeded']
     print '   '
     print 'Solved for gamma:  ',p_num['p',0,0,'gam'] #PARAMETER value for homotopy
@@ -545,7 +561,7 @@ for toggle_value in toggle_table:
     external_extra_text = ['POWER OPTIMIZATION; TOGGLE %.1f - FIXED TIME' % toggle_value]
     # Solve the problem
     print "Solve for toggle =", toggle_value
-    res = solver(arg)
+    res = solver(**arg)
 
     # Retrieve the solution, re-assign as new guess
     arg['x0']            = res['x']
@@ -579,7 +595,7 @@ arg['ubx'] = vars_ub
 # p_num['tf_previous'] = V(res['x'])['tf']
 
 external_extra_text = ['RELEASE TIME - final solve']
-res = solver(arg)
+res = solver(**arg)
 
 print "Period = ", V(res['x'])['tf']
 
@@ -589,28 +605,29 @@ print "Period = ", V(res['x'])['tf']
 opt = V(res['x'])
 
 
-outputs = Output(Out_fun([V,P])[0])
+outputs = Output(Out_fun(V,P))
 
 val_init = get_Output(vars_init, p_num)
 val_opt = get_Output(opt,p_num)
+
 import pickle
-with open('solution.dat','w') as f:
+with open('solution_drag.dat','w') as f:
     pickle.dump((val_opt, opt, nk, d),f)
 
-with open('init.dat','w') as f:
+with open('init_drag.dat','w') as f:
     pickle.dump((val_init, vars_init, nk, d),f)
 
 # dyn = g(g_fun([opt,p_num])[0])['collocation']
 # with open('dynamics_opt.dat', 'w') as f:
 #     pickle.dump(dyn,f)
 
-[E_final]   = Energy_Cost_fun([opt,p_num])
-[Lifting]      = lift_Cost_fun([opt])
-[Tracking]  = Tracking_Cost_fun([opt,p_num])
-[Cost]      = totCost_fun([opt,p_num])
-[Reg]       = Reg_Cost_fun([opt,p_num])
+E_final   = Energy_Cost_fun(opt,p_num)
+Lifting      = lift_Cost_fun(opt)
+Tracking  = Tracking_Cost_fun(opt,p_num)
+Cost      = totCost_fun(opt,p_num)
+Reg       = Reg_Cost_fun(opt,p_num)
 
-with open('cost.dat', 'w') as f:
+with open('cost_drag.dat', 'w') as f:
     pickle.dump((E_final, Lifting, Tracking, Cost, Reg), f)
 
 
@@ -643,38 +660,39 @@ def null(A, V_shape, eps=1e-4, ):
 
     return nullspace, s, u, vh, zeros
 
-# Make function out of equality constraints
-geq = struct_MX(
-              [
-               entry('collocation', expr=coll_cstr),
-               entry('continuity',  expr=continuity_cstr),
-               entry('DCM orthogonality', expr=DCM_cstr),
-               entry('periodicity', expr=periodic_cstr),
-               entry('tether',      expr = tether_cstr),
-               entry('E_cstr', expr = E_cstr)
-            ]
-              )
+def computeHessian():
+    # Make function out of equality constraints
+    geq = struct_MX(
+                  [
+                   entry('collocation', expr=coll_cstr),
+                   entry('continuity',  expr=continuity_cstr),
+                   entry('DCM orthogonality', expr=DCM_cstr),
+                   entry('periodicity', expr=periodic_cstr),
+                   entry('tether',      expr = tether_cstr),
+                   entry('E_cstr', expr = E_cstr)
+                ]
+                  )
 
-geq_fun = MXFunction('geq',[V,P],[geq])
-geq_jac = geq_fun.jacobian()
+    geq_fun = Function('geq',[V,P],[geq])
+    geq_jac = geq_fun.jacobian()
 
-# compute hessian at the solution
-hess_fun                      = solver.hessLag()
-[Hopt, fopt, gopt, dLx, dLy]  = hess_fun([res['x'], p_num, 1, res['lam_g']])
-# Hopt: Hessian at the optimum, fopt: cost at the optimum,
-# gopt: constraints at the optimum, dLx: gradient of lagrangian with respect to the states (sensitivity),
-# dLy: Langrangian sensitivity wrt the multipliers
+    # compute hessian at the solution
+    hess_fun                      = solver.hessLag()
+    [Hopt, fopt, gopt, dLx, dLy]  = hess_fun([res['x'], p_num, 1, res['lam_g']])
+    # Hopt: Hessian at the optimum, fopt: cost at the optimum,
+    # gopt: constraints at the optimum, dLx: gradient of lagrangian with respect to the states (sensitivity),
+    # dLy: Langrangian sensitivity wrt the mul
 
-dgopt = geq_jac([res['x'], p_num])                         # evaluate equality constraint-deriv at solution
-[N_dgopt, sv, _, _, zeros]     = null(dgopt[0],V.shape)                       # compute nullspace
+    dgopt = geq_jac([res['x'], p_num])                         # evaluate equality constraint-deriv at solution
+    [N_dgopt, sv, _, _, zeros]     = null(dgopt[0],V.shape)                       # compute nullspace
 
-# LICQ
-print 'LICQ_check; smallest singular value', sv[-1], 'biggest sv',  sv[0]
+    # LICQ
+    print 'LICQ_check; smallest singular value', sv[-1], 'biggest sv',  sv[0]
 
-# SOSC
-redH        = mul([N_dgopt.T, Hopt, N_dgopt])              # compute reduced hessian
-[eigs,eigv] = np.linalg.eig(redH)
+    # SOSC
+    redH        = mtimes([N_dgopt.T, Hopt, N_dgopt])              # compute reduced hessian
+    [eigs,eigv] = np.linalg.eig(redH)
 
-# print 'Eigenvalues: ' , eigs  # Eigenvalues should be >0 in order to fullfill SOSC
-# print 'Lift variable', opt['vlift']
-# print np.max(val_opt['power'])- np.min(val_opt['power'])
+    # print 'Eigenvalues: ' , eigs  # Eigenvalues should be >0 in order to fullfill SOSC
+    # print 'Lift variable', opt['vlift']
+    # print np.max(val_opt['power'])- np.min(val_opt['power'])

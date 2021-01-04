@@ -3,14 +3,22 @@ COLLOCATION Code (direct collocation)
 takes variables and the number of nodes/collocation points
 creates NLP variables
 creates necessary collocation and continutiy constraints
-Python Version 2.7 / Casadi version 2.4.1
-- Author: Elena Malz, Chalmers 2016
+Python Version 2.7 / Casadi version 3.5.5
+-
+Author: Elena Malz, elena@malz.me
+Chalmers, Goeteborg Sweden, 2017, (2020 updated from casadi 2.4.1 to 3.5.5)
+-
 '''
+
+from sys import path
+path.append(r"/Users/elena/Documents/Python/packages/casadi-osx-py27-v3.5.5")
+from casadi import *
+
 import casadi as ca
 import casadi.tools as ca
 import sys
 
-import numpy as NP
+import numpy as np
 from numpy import pi
 
 def collocate(xd,xa,u,p,nk,d,dynamics, out_fun,out):
@@ -19,22 +27,23 @@ def collocate(xd,xa,u,p,nk,d,dynamics, out_fun,out):
     # -----------------------------------------------------------------------------
 
     # Choose collocation points
-    tau_root = ca.collocationPoints(d,'radau')
+    tau_root = ca.collocation_points(d, 'radau')
+    tau_root = ca.veccat(0, tau_root)
 
     # Size of the finite elements
     h = 1./nk
 
     # Coefficients of the collocation equation
-    C = NP.zeros((d+1,d+1))
+    C = np.zeros((d+1,d+1))
 
     # Coefficients of the continuity equation
-    D = NP.zeros(d+1)
+    D = np.zeros(d+1)
 
     # Dimensionless time inside one control interval
     tau = ca.SX.sym('tau')
 
     # All collocation time points
-    T = NP.zeros((nk,d+1))
+    T = np.zeros((nk,d+1))
     for k in range(nk):
         for j in range(d+1):
             T[k,j] = (k + tau_root[j])
@@ -47,16 +56,16 @@ def collocate(xd,xa,u,p,nk,d,dynamics, out_fun,out):
         for r in range(d+1):
             if r != j:
                 L *= (tau-tau_root[r])/(tau_root[j]-tau_root[r])
-        lfcn = ca.SXFunction('lfcn', [tau],[L])
+        lfcn = ca.Function('lfcn', [tau],[L])  # updated from SXFunction in Casadi 2.2.6
 
         # Evaluate the polynomial at the final time to get the coefficients of the continuity equation
-        [D[j]] = lfcn([1.0])
+        D[j] = lfcn(1.0)
 
         # Evaluate the time derivative of the polynomial at all collocation points to get the coefficients of the continuity equation
-        tfcn = lfcn.tangent()
+        tfcn = lfcn.jacobian()  # updated from SXFunction in Casadi 2.2.6
         for r in range(d+1):
-            C[j][r], _ = tfcn([tau_root[r]])
-
+            #C[j][r], _ = tfcn([tau_root[r]]) from casadi version 2.2.6
+            C[j][r] = tfcn(tau_root[r],0)
 
     # --------------------------------------
     # NLP Variables
@@ -104,7 +113,7 @@ def collocate(xd,xa,u,p,nk,d,dynamics, out_fun,out):
                 xp_jk += C[r,j]*V['Xd',k,r]
 
             # Add collocation equations to the NLP
-            [fk] = dynamics([V['Xd',k,j],xp_jk/h/V['tf'], V['XA',k,j-1], V['U',k], P['p',k,j]])
+            fk = dynamics(V['Xd',k,j],xp_jk/h/V['tf'], V['XA',k,j-1], V['U',k], P['p',k,j])
             coll_cstr.append(fk)
 
         # Get an expression for the state at the end of the finite element
@@ -121,7 +130,7 @@ def collocate(xd,xa,u,p,nk,d,dynamics, out_fun,out):
         # For plotting F_tether the point on :,0 is wrong and should not be printed. All outputs dependent on algebraic variables are discontinous. !!!
 
         for j in range(1,d+1):
-            [outk] = out_fun([V['Xd',k,j],V['XA',k,j-1],P['p',k,j] ])
+            outk = out_fun(V['Xd',k,j],V['XA',k,j-1],P['p',k,j] )
             for name in out.keys(): Output_list[name].append(out(outk)[name])
 
         Output = ca.struct_MX( [ ca.entry(name,expr=Output_list[name]) for name in Output_list.keys() ] )

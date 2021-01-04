@@ -2,8 +2,11 @@
 '''
 simple AERODYNAMIC MODEL of AWE system (drag mode)
 Aerodynamic coefficients are assumptions.
-Python Version 2.7 / Casadi version 2.4.1
-- Author: Elena Malz, Chalmers 2017
+Python Version 2.7 / Casadi version 3.5.5
+-
+Author: Elena Malz, elena@malz.me
+Chalmers, Goeteborg Sweden, 2017, (2020 updated from casadi 2.4.1 to 3.5.5)
+-
 '''
 import casadi as ca
 import casadi.tools as ca
@@ -23,14 +26,14 @@ def aero(xd, xa, p, params):
     # v_app = dq - np.array([11,0,0])
 
     # calculate angle of attack and side slip (convert apparent velocity to body frame)
-    AoA       = -ca.mul(R[6:9].T,(v_app))/ca.mul(R[0:3].T,(v_app))
-    sslip     = ca.mul(R[3:6].T,(v_app))/ca.mul(R[0:3].T,(v_app))
+    AoA       = -ca.mtimes(R[6:9].T,(v_app))/ca.mtimes(R[0:3].T,(v_app))
+    sslip     = ca.mtimes(R[3:6].T,(v_app))/ca.mtimes(R[0:3].T,(v_app))
 
     CF, CM = aero_coeffs(AoA, sslip, v_app, w,  coeff , params)
 
-    F_aero = 0.5 * params['rho'] * params['sref'] * np.linalg.norm(v_app) * (ca.cross(CF[2]*v_app,R[3:6]) + CF[0]*(v_app) )
-    reference_lengths = ca.vertcat([params['bref'], params['cref'], params['bref']])
-    M_aero = 0.5 * params['rho'] * params['sref'] *  np.linalg.norm(v_app)**2 * CM  * reference_lengths
+    F_aero = 0.5 * params['rho'] * params['sref'] * ca.norm_2(v_app) * (ca.cross(CF[2]*v_app,R[3:6]) + CF[0]*(v_app) )
+    reference_lengths = ca.vertcat(params['bref'], params['cref'], params['bref'])
+    M_aero = 0.5 * params['rho'] * params['sref'] *  ca.norm_2(v_app)**2 * CM  * reference_lengths
 
     F_drag   = -Drag * R[0:3]   # Drag in opposite x-direction of kite (Props)
     F_tether = q*xa             # Force of the tether at the kite
@@ -40,12 +43,12 @@ def aero(xd, xa, p, params):
     # Tether Drag
     # defined in + x direction , therefore minus sign
     C_tet        = 0.4
-    Tether_drag  =  - 1./8 * params['rho'] * params['tether_diameter'] * C_tet * params['l'] * np.linalg.norm(v_app)**2 * R[0:3]
-    # Tether_drag  =  - 1./6 * params['rho'] * params['tether_diameter'] * C_tet * params['l'] * np.linalg.norm(v_app)**2 * R[0:3]
+    Tether_drag  =  - 1./8 * params['rho'] * params['tether_diameter'] * C_tet * params['l'] * ca.norm_2(v_app)**2 * R[0:3]
+    # Tether_drag  =  - 1./6 * params['rho'] * params['tether_diameter'] * C_tet * params['l'] * ca.norm_2(v_app)**2 * R[0:3]
 
     outputs = {}
     outputs['v_app']    = v_app
-    outputs['speed']    = np.linalg.norm(v_app)
+    outputs['speed']    = ca.norm_2(v_app)
     outputs['windspeed_shear'] = windspeed_shear
     outputs['AoA']      = AoA
     outputs['sslip']    = sslip
@@ -58,7 +61,7 @@ def aero(xd, xa, p, params):
     outputs['F_tether_scaled'] = F_tether   # This is scaled so Force/kg
     outputs['F_tether'] = F_tether*m
     outputs['M_aero']   = M_aero
-    outputs['power']    = ca.mul(F_drag.T,dq)
+    outputs['power']    = ca.mtimes(F_drag.T,dq)
     outputs['Tether_drag'] = Tether_drag
     return (F_aero, M_aero, F_tether, F_drag, F_gravity, Tether_drag), outputs
 
@@ -78,7 +81,7 @@ def aero_coeffs(alpha, beta, v_app, omega,  phi , params):
     CMz_0 = 0.      #0.75 * beta_tail
 
     # pqr - DAMPING
-    omega_hat = omega/(2.*np.linalg.norm(v_app))
+    omega_hat = omega/(2.*ca.norm_2(v_app))
     omega_hat[0] *= params['bref']
     omega_hat[1] *= params['cref']
     omega_hat[2] *= params['bref']
@@ -90,9 +93,9 @@ def aero_coeffs(alpha, beta, v_app, omega,  phi , params):
     CMx_pqr = 0.
     CMy_pqr = 0.
     CMz_pqr = 0.
-    CMx_pqr = ca.mul(omega_hat.T,np.array([-10.,   0.0,  - 1e-2]))
-    CMy_pqr = ca.mul(omega_hat.T,np.array([ 0.0,  0.0,   0.0]))
-    CMz_pqr = ca.mul(omega_hat.T,np.array([ - 1e-1,  0.0,   0.0]))
+    CMx_pqr = ca.mtimes(omega_hat.T,np.array([-10.,   0.0,  - 1e-2]))
+    CMy_pqr = ca.mtimes(omega_hat.T,np.array([ 0.0,  0.0,   0.0]))
+    CMz_pqr = ca.mtimes(omega_hat.T,np.array([ - 1e-1,  0.0,   0.0]))
 
     # surfaces
     CFx_surfs = 0.
@@ -110,7 +113,7 @@ def aero_coeffs(alpha, beta, v_app, omega,  phi , params):
     CMy = CMy_0 + CMy_pqr + CMy_surfs
     CMz = CMz_0 + CMz_pqr + CMz_surfs
 
-    CF_wind = ca.vertcat([CFx, CFy, CFz]) # in fixed frame
-    CM_cad = ca.vertcat([CMx, CMy, CMz])  # in body frame
+    CF_wind = ca.vertcat(CFx, CFy, CFz) # in fixed frame
+    CM_cad = ca.vertcat(CMx, CMy, CMz)  # in body frame
 
     return CF_wind, CM_cad
