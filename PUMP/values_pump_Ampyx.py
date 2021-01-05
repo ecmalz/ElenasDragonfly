@@ -10,6 +10,7 @@ from numpy import pi
 def initial_params():
     params = OrderedDict()
 
+    params['ScalePower'] = 1.
     # kite mass [kg]
     params['mK'] = 36.8   # 50 * 25 [AWE book p.15]
     # acceleration due to gravity [m/s^]

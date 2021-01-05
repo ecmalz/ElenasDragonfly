@@ -1,7 +1,10 @@
 '''
 Collected parameters of the pumping Kite system
-Python Version 2.7 / Casadi version 2.4.1
-- Author: Elena Malz, Chalmers 2016
+Python Version 2.7 / Casadi version 3.5.5
+-
+Author: Elena Malz, elena@malz.me
+Chalmers, Goeteborg Sweden, 2017, (2020 updated from casadi 2.4.1 to 3.5.5)
+-
 '''
 from collections import OrderedDict
 import numpy as np
@@ -10,7 +13,7 @@ from numpy import pi
 def initial_params():
     params = OrderedDict()
 
-
+    params['ScalePower'] = 1.
     # # kite mass [kg]
     params['mK'] = 200.0   # 50 * 25 [AWE book p.15]
     # # acceleration due to gravity [m/s^]

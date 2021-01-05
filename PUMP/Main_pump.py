@@ -2,36 +2,37 @@
 MAIN Code to run the optimisation of a pumping kite system
 based on direct Collocation_pump
 
-Python Version 2.7 / Casadi version 2.4.1
-- Author: Elena Malz, Chalmers 2016
-'''
-import sys
-sys.path.append(r"/usr/local/casadi-py27-v3.3.0")
 
+Python Version 2.7 / Casadi version 3.5.5
+-
+Author: Elena Malz, elena@malz.me
+Chalmers, Goeteborg Sweden, 2017, (2020 updated from casadi 2.4.1 to 3.5.5)
+-
+'''
+
+import sys
+import os
+casadi_path = r"/Users/elena/Documents/Python/packages/casadi-osx-py27-v3.5.5"
+if not os.path.exists(casadi_path):
+    print('Casadi package path is wrong!')
+    sys.exit()
+
+sys.path.append(casadi_path)
 from casadi import *
 from casadi.tools import *
 
 import numpy as NP
 import matplotlib.pyplot as plt
-import sys
-sys.path.append('dat')
-from scipy.linalg import logm, expm
 import pickle
 
-import mpl_toolkits.mplot3d as a3
-import matplotlib.colors as colors
-import pylab as pl
-import scipy as sp
-from values_pump import initial_params
+
+from parameters_pump import initial_params
 # from values_pump_Ampyx import initial_params
 
-from aero_Rachel import aero
-from Collocation_pump import collocate
+from aero_pump import aero
+from collocation_pump import collocate
 
-# For visualizing
 import time
-import json
-import zmq
 start_time = time.time()
 plt.close('all')
 t = SX.sym('t')
@@ -70,7 +71,6 @@ def initial_guess(t, rounds):
     ret['ltet']  = l
     return ret
 
-
 def skew(a,b,c):
     " creates skew-symmetric matrix"
     d =  blockcat([[0.,        -c, b],
@@ -79,14 +79,13 @@ def skew(a,b,c):
     return d
 
 def get_Output(V,P):
-    return outputs(Out_fun([V,P])[0])
+    return outputs(Out_fun(V,P))
 
 
 # -----------------------------------------------------------
-nk = 40     # Control discretization  - for a longer time horizon nk has to be high #(20/40/.. dividable by 4)
-d  = 3      # number of polynomial points. Degree of interpolating polynomial yields integration order 5
-tf_init = 10.0    # End time initial guess
-ScalePower = 1.
+nk = 40             # Control discretization  - for a longer time horizon nk has to be high #(20/40/.. dividable by 4)
+d  = 3              # number of polynomial points. Degree of interpolating polynomial yields integration order 5
+tf_init = 10.0      # End time initial guess
 
 # ------------------------
 # MODEL PARAMETER
@@ -183,7 +182,7 @@ res = vertcat(
                m*(xddot['ddq'][0]  + F_tether_scaled[0] - A*(1-p['gam'])*u['u',0]) -  p['gam']*Fa[0] - Tether_drag[0], \
                m*(xddot['ddq'][1]  + F_tether_scaled[1] - A*(1-p['gam'])*u['u',1]) -  p['gam']*Fa[1] - Tether_drag[1], \
                m*(xddot['ddq'][2]  + F_tether_scaled[2] - A*(1-p['gam'])*u['u',2]) -  p['gam']*Fa[2] - Tether_drag[2] + F_gravity   , \
-               xddot['dE'] - ScalePower*mtimes((xa*ltet),dltet), # Note: Don't forget the *m later \
+               xddot['dE'] - params['ScalePower']*mtimes((xa*ltet),dltet), # Note: Don't forget the *m later \
                xddot['dltet']         - xd['dltet'], \
                xddot['ddltet']        - u['ddltet']
               )
@@ -437,7 +436,7 @@ opts = {}
 opts["expand"] = True
 opts["ipopt.max_iter"] = 1000
 opts["ipopt.tol"] = 1e-8
-opts["ipopt.linear_solver"] = 'ma27'
+#opts["ipopt.linear_solver"] = 'ma27'
 solver = nlpsol("solver", "ipopt", nlp, opts)
 
 
@@ -473,7 +472,7 @@ for gamma_value in list(np.arange(0,1.+Homotopy_step,Homotopy_step)):
     print ('   ')
     res = solver(**arg)
     stats = solver.stats()
-    assert stats['return_status'] in ['Solve_Succeeded']
+    #assert stats['return_status'] in ['Solve_Succeeded','Solved To Acceptable Level']
     print ('   ')
     print ('Solved for gamma:  ',p_num['p',0,0,'gam'] )#PARAMETER value for homotopy
     print ('   ')
@@ -618,7 +617,7 @@ val_opt = get_Output(opt,p_num)
 with open('solution_pump.dat','w') as f:
     pickle.dump((val_opt, opt, nk, d),f)
 
-with open('init.dat','w') as f:
+with open('init_pump.dat','w') as f:
     pickle.dump((val_init, vars_init1, nk, d),f)
 
 
@@ -628,7 +627,7 @@ Tracking = Tracking_Cost_fun(opt,p_num)
 Cost     = totCost_fun(opt,p_num)
 Reg      = Reg_Cost_fun(opt,p_num)
 
-with open('cost.dat', 'w') as f:
+with open('cost_pump.dat', 'w') as f:
     pickle.dump((E_final, Lifting, Tracking, Cost, Reg), f)
 
 
@@ -636,12 +635,11 @@ with open('cost.dat', 'w') as f:
 # PRINT OUT ....
 # --------------------------------------
 print ("\n\n\n")
-print ("Average Power = ", opt['Xd',-1,-1,'E']*m/float(ScalePower)/opt['tf'], "  Orbit period = ", opt['tf'])
+print ("Average Power = ", opt['Xd',-1,-1,'E']*m/float(params['ScalePower'])/opt['tf'], "  Orbit period = ", opt['tf'])
 
 end_time = time.time()
 time_taken = end_time - start_time
 print (time_taken)
-
 # --------------------------------------
 # Check cost function....
 # --------------------------------------
@@ -655,64 +653,8 @@ lifting0 = ax.bar(1+0.2,np.array(Lifting)[0],0.1, color = 'k')
 energy0 = ax.bar(1+0.3,np.array(E_final*-1)[0],0.1, color = 'g')
 cost0 = ax.bar(1+0.4,np.array(Cost)[0],0.1, color = 'y')
 ax.legend((track0,regu0,lifting0,energy0,cost0), (('tracking','regularisation','lifting','energy*-1','total cost')))
-plt.grid('on')
+plt.grid(True)
 # ax.set_ylim([0,3000])
 ax.set_xlim([1,1.5])
 
 plt.show()
-
-
-#
-# # -----------------------
-# ## CHECK SOSC
-# # -----------------------
-#
-# # computes the nullspace (equivalent to the casadi-nullspace command)
-#
-# def null(A, V_shape, eps=1e-4, ):
-#     nullshape = V_shape[0]-A.shape[0]
-#     [u, s, vh] = sp.linalg.svd(A)       # python gives v.T back so a=u*s*vh
-#
-#     # Check if Ax = 0, or rather dgopt[0]*Null=0. Then v[..] is the nullspace
-#     zeros = np.dot(A,vh[A.shape[0]+1:,:].T)
-#     maxzero = max(abs(np.concatenate(zeros)))
-#     nullspace = vh[A.shape[0]:,:].T
-#
-#     return nullspace, s, u, vh, zeros
-#
-# # Make function out of equality constraints
-# geq = struct_MX(
-#               [
-#                entry('collocation', expr=coll_cstr),
-#                entry('continuity',  expr=continuity_cstr),
-#                entry('DCM orthogonality', expr=DCM_cstr),
-#                entry('periodicity', expr=periodic_cstr),
-#                entry('tether',      expr = tether_cstr),
-#                entry('E_cstr', expr = E_cstr)
-#             ]
-#               )
-#
-# geq_fun = MXFunction('geq',[V,P],[geq])
-# geq_jac = geq_fun.jacobian()
-#
-# # compute hessian at the solution
-# hess_fun                      = solver.hessLag()
-# [Hopt, fopt, gopt, dLx, dLy]  = hess_fun([res['x'], p_num, 1, res['lam_g']])
-# # Hopt: Hessian at the optimum, fopt: cost at the optimum,
-# # gopt: constraints at the optimum, dLx: gradient of lagrangian with respect to the states (sensitivity),
-# # dLy: Langrangian sensitivity wrt the multipliers
-#
-# dgopt = geq_jac([res['x'], p_num])                         # evaluate equality constraint-deriv at solution
-# [N_dgopt, sv, _, _, zeros]     = null(dgopt[0],V.shape)                       # compute nullspace
-#
-# # LICQ
-# print ('LICQ_check; smallest singular value', sv[-1], 'biggest sv',  sv[0]
-#
-# # SOSC
-# redH        = mtimes([N_dgopt.T, Hopt, N_dgopt])              # compute reduced hessian
-# [eigs,eigv] = np.linalg.eig(redH)
-#
-# print ('Eigenvalues: ' , eigs  # Eigenvalues should be >0 in order to fullfill SOSC
-# print ('Lift variable', opt['vlift']
-#
-# print (np.max(val_opt['power'])- np.min(val_opt['power'])
