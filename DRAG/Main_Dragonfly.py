@@ -9,14 +9,15 @@ Chalmers, Goeteborg Sweden, 2017, (2020 updated from casadi 2.4.1 to 3.5.5)
 -
 '''
 
-from sys import path
+
+import sys
 import os
 casadi_path = r"/Users/elena/Documents/Python/packages/casadi-osx-py27-v3.5.5"
 if not os.path.exists(casadi_path):
     print('Casadi package path is wrong!')
     sys.exit()
 
-path.append(casadi_path)
+sys.path.append(casadi_path)
 from casadi import *
 from casadi.tools import *
 
@@ -641,7 +642,7 @@ print "Average Power = ", -opt['Xd',-1,-1,'E']/float(ScalePower)/opt['tf'], "  O
 
 end_time = time.time()
 time_taken = end_time - start_time
-print time_taken
+print('Done! The computation took ' + str(time_taken)+ 's.')
 
 # -----------------------
 ## CHECK SOSC
