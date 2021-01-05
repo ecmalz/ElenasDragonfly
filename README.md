@@ -1,4 +1,4 @@
-# AWE OPTIMIZATION CODE ( PUMPING / DRAG MODE )
+# AWE POWER OPTIMIZATION ( PUMPING / DRAG MODE )
 
 ——————Author: Elena Malz, elena@malz.me, Chalmers 2017, updated 2021——————
 
