@@ -27,21 +27,25 @@ if system == 'drag':
         (val_opt, opt, nk, d) = pickle.load(f)
     with open(docpath+'DRAG/cost_drag.dat', 'r') as f:
         (E_final, Lifting, Tracking, Cost, Reg) = pickle.load(f)
+    print "\n\n"
+    print "Average Power = ", -opt['Xd',-1,-1,'E']/float(params['ScalePower'])/opt['tf'], "  Orbit period = ", opt['tf']
+
 elif system == 'pump':
-    from PUMP.values_pump import initial_params as initial_params
+    from PUMP.parameters_pump import initial_params as initial_params
     params = initial_params()
     with open(docpath+'PUMP/solution_pump.dat', 'r') as f:
         (val_opt, opt, nk, d) = pickle.load(f)
     with open(docpath+'PUMP/cost_pump.dat', 'r') as f:
         (E_final, Lifting, Tracking, Cost, Reg) = pickle.load(f)
+    print "\n\n"
+    print "Average Power = ", opt['Xd',-1,-1,'E']*(params['mK'] + 1./3*params['mT'])/float(params['ScalePower'])/opt['tf'], "  Orbit period = ", opt['tf']
 
 
 plt.close('all')
 plt.ion()
 # --------------------------------------------------------
 
-print "\n\n"
-print "Average Power = ", -opt['Xd',-1,-1,'E']/float(params['ScalePower'])/opt['tf'], "  Orbit period = ", opt['tf']
+
 
 p = plots(opt, val_opt, params,nk,d)
 tgrid_x  = p.tgrid_x

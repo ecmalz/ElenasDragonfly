@@ -529,7 +529,7 @@ class plots(object):
         energy0 = ax.bar(1+0.3,np.array(E_final*-1)[0],0.1, color = 'g')
         cost0 = ax.bar(1+0.4,np.array(Cost)[0],0.1, color = 'y')
         ax.legend((track0,regu0,lifting0,energy0,cost0), (('tracking','regularisation','lifting','energy*-1','total cost')))
-        plt.grid('on')
+        plt.grid(True)
         # ax.set_ylim([0,3000])
         ax.set_xlim([1,1.5])
 
