@@ -1,4 +1,5 @@
-# Airborne Wind Energy Power Optimization ( pumping / drag mode system )
+# Airborne Wind Energy Power Optimization 
+# ( pumping and drag mode system )
 
 ——————Author: Elena Malz, elena@malz.me, Chalmers 2017, updated 2021——————
 
