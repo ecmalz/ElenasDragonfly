@@ -1,4 +1,4 @@
-# AWE POWER OPTIMIZATION ( PUMPING / DRAG MODE )
+# Airborne Wind Energy Power Optimization ( pumping / drag mode system )
 
 ——————Author: Elena Malz, elena@malz.me, Chalmers 2017, updated 2021——————
 
