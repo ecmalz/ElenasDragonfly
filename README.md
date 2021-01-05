@@ -13,27 +13,27 @@ This is a script that computes the optimal trajectory of an AWE system with the 
 
 ## Folder Content
 
-#DRAG
-*Main_Dragonly.py*:           Execute program!
-*collocation_drag.py*:        Discretization via collocation
-*aero_drag_.py* :             Aerodynamic model of the rigid body
-*parameters_drag_small.py* :  Parameters for the AWE system
-*parameters_drag.py* :        Parameters for the AWE system
-* `*`.dat* :                  Example solution files of the OCP
+### DRAG
+* *Main_Dragonly.py*:           Execute program!
+* *collocation_drag.py*:        Discretization via collocation
+* *aero_drag_.py* :             Aerodynamic model of the rigid body
+* *parameters_drag_small.py* :  Parameters for the AWE system
+* *parameters_drag.py* :        Parameters for the AWE system
+* *`*`.dat* :                  Example solution files of the OCP
 
-#PUMP
-#DRAG
-*Main_Pump.py*:               Execute program!
-*collocation_pump.py*:        Discretization via collocation
-*aero_pump.py* :              Aerodynamic model of the rigid body
-*parameters_pump.py* :        Parameters for the AWE system
-*parameters_pump_industry.py*:Parameters for the AWE system
-* `*`.dat* :                  Example solution files of the OCP
+### PUMP
+
+* *Main_Pump.py*:               Execute program!
+* *collocation_pump.py*:        Discretization via collocation
+* *aero_pump.py* :              Aerodynamic model of the rigid body
+* *parameters_pump.py* :        Parameters for the AWE system
+* *parameters_pump_industry.py*:Parameters for the AWE system
+* *`*`.dat* :                   Example solution files of the OCP
 
 
-#VISUALIZE
-*plotClass.py* :              Class for different plots
-*plot_sol.py*:                Program to plot solutions of drag or pump AWE system
+# VISUALIZE
+* *plotClass.py* :              Class for different plots
+* *plot_sol.py*:                Program to plot solutions of drag or pump AWE system
 
 
 ## Needed software
@@ -41,10 +41,11 @@ This is a script that computes the optimal trajectory of an AWE system with the 
 * CasADi 3.5.5 (might work with any CasADi > 3.0.0)
 * (optional) Other linear solves for IPOPT as e.g. MA27
 
-# Installation
-You can get the CasADi package at https://web.casadi.org/
+## Installation
+You can get the CasADi package at https://web.casadi.org/.
+
 The solvers one can get from http://www.hsl.rl.ac.uk/ipopt/ and include it as described at https://github.com/casadi/casadi/wiki/Obtaining-HSL.
 
-# Background
-This project is part of a dissertation, which can be found at https://research.chalmers.se/en/publication/519020
+## Background
+This project is part of a dissertation, which can be found at https://research.chalmers.se/en/publication/519020.
 If there are any questions please do not hesitate to write an e-mail.
