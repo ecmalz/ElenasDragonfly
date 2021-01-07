@@ -1,8 +1,7 @@
-————
-# AWE OPTIMIZATION CODE ( PUMPING / DRAG MODE )
+# Airborne Wind Energy Power Optimization 
+# ( pumping and drag mode system )
 
-Author: Elena Malz, elena@malz.me, Chalmers 2017, updated 2021
-——————
+——————Author: Elena Malz, elena@malz.me, Chalmers 2017, updated 2021——————
 
 ## Summary Keywords
 This is a script that computes the optimal trajectory of an AWE system with the aim of maximizing the power during one orbit.
@@ -31,7 +30,7 @@ This is a script that computes the optimal trajectory of an AWE system with the 
 * *`*`.dat* :                   Example solution files of the OCP
 
 
-# VISUALIZE
+### Visualize
 * *plotClass.py* :              Class for different plots
 * *plot_sol.py*:                Program to plot solutions of drag or pump AWE system
 
