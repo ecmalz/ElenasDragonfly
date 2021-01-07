@@ -2,10 +2,12 @@
 '''
 simple AERODYNAMIC MODEL of AWE system (drag mode)
 Aerodynamic coefficients are assumptions.
-Python Version 2.7 / Casadi version 3.5.5
+Python Version 3.8 / CasADi version 3.5.5
+
 -
-Author: Elena Malz, elena@malz.me
-Chalmers, Goeteborg Sweden, 2017, (2020 updated from casadi 2.4.1 to 3.5.5)
+@Author: Elena Malz, elena@malz.me
+Chalmers, Goeteborg Sweden, 2017
+(2020: updated from Python 2.7/casADi 2.4.1 to Python 3.8/casADi 3.5.5)
 -
 '''
 import casadi as ca

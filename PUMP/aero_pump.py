@@ -3,9 +3,15 @@ simple AERODYNAMIC MODEL of AWE system (pumping mode)
 takes states and inputs and creates aerodynamic forces and moments
 dependent on the position of the kite.
 Aerodynamic coefficients are assumptions.
-Python Version 2.7 / Casadi version 2.4.1
-- Author: Elena Malz, Chalmers 2016
+Python Version 3.8 / CasADi version 3.5.5
+
+-
+@Author: Elena Malz, elena@malz.me
+Chalmers, Goeteborg Sweden, 2017
+(2020: updated from Python 2.7/casADi 2.4.1 to Python 3.8/casADi 3.5.5)
+-
 '''
+
 import casadi as ca
 import casadi.tools as ca
 import numpy as np

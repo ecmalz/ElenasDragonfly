@@ -1,18 +1,17 @@
 '''
 MAIN Code to run the optimisation of a pumping kite system
-based on direct Collocation_pump
+Python Version 3.8 / CasADi version 3.5.5
 
-
-Python Version 2.7 / Casadi version 3.5.5
 -
-Author: Elena Malz, elena@malz.me
-Chalmers, Goeteborg Sweden, 2017, (2020 updated from casadi 2.4.1 to 3.5.5)
+@Author: Elena Malz, elena@malz.me
+Chalmers, Goeteborg Sweden, 2017
+(2020: updated from Python 2.7/casADi 2.4.1 to Python 3.8/casADi 3.5.5)
 -
 '''
 
 import sys
 import os
-casadi_path = r"/Users/elena/Documents/Python/packages/casadi-osx-py27-v3.5.5"
+casadi_path = r"/Users/elena/Documents/Python/packages/casadi-osx-py38-v3.5.5"
 if not os.path.exists(casadi_path):
     print('Casadi package path is wrong!')
     sys.exit()
@@ -323,7 +322,7 @@ Tracking_Cost       = (1-P['toggle_to_energy']) * Tracking * 1e-3  # Tracking of
 Regularisation_Cost = Regularisation                          # Regularisation of inputs
 Lift_Cost           = 0.5*V['vlift']**2 * 1e2                 # Regularisation of inputs
 Energy_Cost         = P['toggle_to_energy'] * (E_final/A)/V['tf']
-SOSCFix             = 10. * V['Xd',nk/4,0,'q',1]**2
+SOSCFix             = 10. * V['Xd',int(nk/4),0,'q',1]**2
 
 Cost = 0
 Cost = (Tracking_Cost + Regularisation_Cost + Lift_Cost + SOSCFix)/float(nk) + Energy_Cost
@@ -614,10 +613,10 @@ outputs = Output(Out_fun(V,P))
 val_init = get_Output(vars_init,p_num)
 val_opt = get_Output(opt,p_num)
 
-with open('solution_pump.dat','w') as f:
+with open('solution_pump.dat','wb') as f:
     pickle.dump((val_opt, opt, nk, d),f)
 
-with open('init_pump.dat','w') as f:
+with open('init_pump.dat','wb') as f:
     pickle.dump((val_init, vars_init1, nk, d),f)
 
 
@@ -627,7 +626,7 @@ Tracking = Tracking_Cost_fun(opt,p_num)
 Cost     = totCost_fun(opt,p_num)
 Reg      = Reg_Cost_fun(opt,p_num)
 
-with open('cost_pump.dat', 'w') as f:
+with open('cost_pump.dat', 'wb') as f:
     pickle.dump((E_final, Lifting, Tracking, Cost, Reg), f)
 
 

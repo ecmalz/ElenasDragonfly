@@ -1,10 +1,12 @@
 '''
 PLOT the optimal trajectory of states and inputs
 of the AWE system in pumping mode
-Python Version 2.7 / Casadi version 3.5.5
+Python Version 3.8 / CasADi version 3.5.5
+
 -
 Author: Elena Malz, elena@malz.me
-Chalmers, Goeteborg Sweden, 2017, (2020 updated from casadi 2.4.1 to 3.5.5
+Chalmers, Goeteborg Sweden, 2017
+(2020: updated from Python 2.7/casADi 2.4.1 to Python 3.8/casADi 3.5.5)
 -
 '''
 
@@ -12,7 +14,7 @@ system = 'pump' #or pump
 
 import sys
 docpath = r"/Users/elena/Documents/Python/PhDprojects/ElenasDragonfly/"
-sys.path.append(r"/Users/elena/Documents/Python/packages/casadi-osx-py27-v3.5.5")
+sys.path.append(r"/Users/elena/Documents/Python/packages/casadi-osx-py38-v3.5.5")
 sys.path.append(docpath)
 
 import pickle
@@ -23,28 +25,27 @@ from  plotClass import *
 if system == 'drag':
     from DRAG.parameters_drag import initial_params as initial_params
     params = initial_params()
-    with open(docpath+'DRAG/solution_drag.dat', 'r') as f:
+    with open(docpath+'DRAG/solution_drag.dat', 'rb') as f:
         (val_opt, opt, nk, d) = pickle.load(f)
-    with open(docpath+'DRAG/cost_drag.dat', 'r') as f:
+    with open(docpath+'DRAG/cost_drag.dat', 'rb') as f:
         (E_final, Lifting, Tracking, Cost, Reg) = pickle.load(f)
-    print "\n\n"
-    print "Average Power = ", -opt['Xd',-1,-1,'E']/float(params['ScalePower'])/opt['tf'], "  Orbit period = ", opt['tf']
-
+    print ("\n\n")
+    print ("Average Power = ", -opt['Xd',-1,-1,'E']/float(params['ScalePower'])/opt['tf'], "  Orbit period = ", opt['tf']
+)
 elif system == 'pump':
     from PUMP.parameters_pump import initial_params as initial_params
     params = initial_params()
-    with open(docpath+'PUMP/solution_pump.dat', 'r') as f:
+    with open(docpath+'PUMP/solution_pump.dat', 'rb') as f:
         (val_opt, opt, nk, d) = pickle.load(f)
-    with open(docpath+'PUMP/cost_pump.dat', 'r') as f:
+    with open(docpath+'PUMP/cost_pump.dat', 'rb') as f:
         (E_final, Lifting, Tracking, Cost, Reg) = pickle.load(f)
-    print "\n\n"
-    print "Average Power = ", opt['Xd',-1,-1,'E']*(params['mK'] + 1./3*params['mT'])/float(params['ScalePower'])/opt['tf'], "  Orbit period = ", opt['tf']
+    print( "\n\n")
+    print ("Average Power = ", opt['Xd',-1,-1,'E']*(params['mK'] + 1./3*params['mT'])/float(params['ScalePower'])/opt['tf'], "  Orbit period = ", opt['tf'])
 
 
 plt.close('all')
 plt.ion()
 # --------------------------------------------------------
-
 
 
 p = plots(opt, val_opt, params,nk,d)

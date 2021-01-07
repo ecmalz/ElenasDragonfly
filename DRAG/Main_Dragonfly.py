@@ -2,17 +2,19 @@
 MAIN Code to run the optimisation of a drag mode kite system
 based on direct Collocation
 
-Python Version 2.7 / Casadi version 3.5.5
+Python Version 3.8 / CasADi version 3.5.5
+
 -
-Author: Elena Malz, elena@malz.me
-Chalmers, Goeteborg Sweden, 2017, (2020 updated from casadi 2.4.1 to 3.5.5)
+@Author: Elena Malz, elena@malz.me
+Chalmers, Goeteborg Sweden, 2017
+(2020: updated from Python 2.7/casADi 2.4.1 to Python 3.8/casADi 3.5.5)
 -
 '''
 
 
 import sys
 import os
-casadi_path = r"/Users/elena/Documents/Python/packages/casadi-osx-py27-v3.5.5"
+casadi_path = r"/Users/elena/Documents/Python/packages/casadi-osx-py38-v3.5.5"
 if not os.path.exists(casadi_path):
     print('Casadi package path is wrong!')
     sys.exit()
@@ -340,7 +342,7 @@ Regularisation_Cost = Regularisation                          # Regularisation o
 Lift_Cost           = 0.5*V['vlift']**2 #* 1e2                      # Regularisation of inputs
 Energy_Cost         = P['toggle_to_energy'] * (E_final/A)/V['tf']
 # SOSCFix             = 10. * V['Xd',5,0,'q',1]**2              # Fix one point to avoid SOSC (y to 0, highest point)
-SOSCFix             = 10. * V['Xd',nk/4,0,'q',1]**2
+SOSCFix             = 10. * V['Xd',int(nk/4),0,'q',1]**2
 
 Cost = 0
 Cost = (Tracking_Cost + Regularisation_Cost + Lift_Cost + SOSCFix)/float(nk) + Energy_Cost
@@ -477,7 +479,7 @@ Homotopy_step = 0.1
 for gamma_value in list(np.arange(0,1.+Homotopy_step,Homotopy_step)):
 
     p_num['p',:,:,'gam'] = gamma_value
-    print gamma_value
+    print (gamma_value)
     p_num['toggle_to_energy'] = 0.
     external_extra_text = ['HOMOTOPY SOLVE FOR  GAMMA %.1f' % gamma_value]
     # Initial condition
@@ -496,15 +498,15 @@ for gamma_value in list(np.arange(0,1.+Homotopy_step,Homotopy_step)):
     arg['p']   = p_num   # hand over the parameters to the solver
 
     # Solve the problem
-    print '   '
-    print 'Solve for gamma:   ',p_num['p',0,0,'gam'] #PARAMETER value for homotopy
-    print '   '
+    print ('   ')
+    print ( 'Solve for gamma:   ',p_num['p',0,0,'gam']) #PARAMETER value for homotopy
+    print ('   ')
     res = solver(**arg)
     stats = solver.stats()
     assert stats['return_status'] in ['Solve_Succeeded']
-    print '   '
-    print 'Solved for gamma:  ',p_num['p',0,0,'gam'] #PARAMETER value for homotopy
-    print '   '
+    print ('   ')
+    print ('Solved for gamma:  ',p_num['p',0,0,'gam']) #PARAMETER value for homotopy
+    print ('   ')
 
     arg['lam_x0'] = res['lam_x']
 
@@ -533,15 +535,15 @@ init_opt = opt
 # -----------------------------------------------------------------------------
 # Using homopty for changing cost function.
 # Shifting from tracking to power optimisation
-print "#####################################################"
-print "#####################################################"
-print "#####################################################"
-print "#########                                   #########"
-print "#########    STARTING POWER OPTIMIZATION    #########"
-print "#########                                   #########"
-print "#####################################################"
-print "#####################################################"
-print "#####################################################"
+print ("#####################################################")
+print ("#####################################################")
+print ("#####################################################")
+print ("#########                                   #########")
+print ("#########    STARTING POWER OPTIMIZATION    #########")
+print ("#########                                   #########")
+print ("#####################################################")
+print ("#####################################################")
+print ("#####################################################")
 
 #Attribute previous guess
 arg['x0'] = vars_init
@@ -561,7 +563,7 @@ for toggle_value in toggle_table:
     arg['p']  = p_num
     external_extra_text = ['POWER OPTIMIZATION; TOGGLE %.1f - FIXED TIME' % toggle_value]
     # Solve the problem
-    print "Solve for toggle =", toggle_value
+    print( "Solve for toggle =", toggle_value)
     res = solver(**arg)
 
     # Retrieve the solution, re-assign as new guess
@@ -571,20 +573,20 @@ for toggle_value in toggle_table:
     arg['p']             = p_num
 
     #Report some stuff...
-    print "Solved for toggle =", toggle_value, " Period = ", float(V(res['x'])['tf'])
+    print ("Solved for toggle =", toggle_value, " Period = ", float(V(res['x'])['tf']))
 
 
 opt = V(res['x'])
 
-print "#####################################################"
-print "#####################################################"
-print "#####################################################"
-print "#########                                   #########"
-print "#########          OPEN FINAL TIME          #########"
-print "#########                                   #########"
-print "#####################################################"
-print "#####################################################"
-print "#####################################################"
+print ("#####################################################")
+print ("#####################################################")
+print ("#####################################################")
+print ("#########                                   #########")
+print ("#########           OPEN FINAL TIME         #########")
+print ("#########                                   #########")
+print ("#####################################################")
+print ("#####################################################")
+print ("#####################################################")
 
 vars_lb['tf'] = 0.
 vars_ub['tf'] = inf
@@ -598,7 +600,7 @@ arg['ubx'] = vars_ub
 external_extra_text = ['RELEASE TIME - final solve']
 res = solver(**arg)
 
-print "Period = ", V(res['x'])['tf']
+print ("Period = ", V(res['x'])['tf'])
 
 #------------------------------
 # RECEIVE SOLUTION  & SAVE DATA
@@ -612,10 +614,10 @@ val_init = get_Output(vars_init, p_num)
 val_opt = get_Output(opt,p_num)
 
 import pickle
-with open('solution_drag.dat','w') as f:
+with open('solution_drag.dat','wb') as f:
     pickle.dump((val_opt, opt, nk, d),f)
 
-with open('init_drag.dat','w') as f:
+with open('init_drag.dat','wb') as f:
     pickle.dump((val_init, vars_init, nk, d),f)
 
 # dyn = g(g_fun([opt,p_num])[0])['collocation']
@@ -628,7 +630,7 @@ Tracking  = Tracking_Cost_fun(opt,p_num)
 Cost      = totCost_fun(opt,p_num)
 Reg       = Reg_Cost_fun(opt,p_num)
 
-with open('cost_drag.dat', 'w') as f:
+with open('cost_drag.dat', 'wb') as f:
     pickle.dump((E_final, Lifting, Tracking, Cost, Reg), f)
 
 
@@ -637,8 +639,8 @@ with open('cost_drag.dat', 'w') as f:
 # --------------------------------------
 # PRINT OUT ....
 # --------------------------------------
-print "\n\n\n"
-print "Average Power = ", -opt['Xd',-1,-1,'E']/float(ScalePower)/opt['tf'], "  Orbit period = ", opt['tf']
+print ("\n\n\n")
+print ("Average Power = ", -opt['Xd',-1,-1,'E']/float(ScalePower)/opt['tf'], "  Orbit period = ", opt['tf'])
 
 end_time = time.time()
 time_taken = end_time - start_time
@@ -688,7 +690,7 @@ def computeHessian():
     [N_dgopt, sv, _, _, zeros]     = null(dgopt[0],V.shape)                       # compute nullspace
 
     # LICQ
-    print 'LICQ_check; smallest singular value', sv[-1], 'biggest sv',  sv[0]
+    print ('LICQ_check; smallest singular value', sv[-1], 'biggest sv',  sv[0])
 
     # SOSC
     redH        = mtimes([N_dgopt.T, Hopt, N_dgopt])              # compute reduced hessian

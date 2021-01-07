@@ -3,10 +3,12 @@ COLLOCATION Code (direct collocation)
 takes variables and the number of nodes/collocation points
 creates NLP variables
 creates necessary collocation and continutiy constraints
-Python Version 2.7 / Casadi version 3.5.5
+Python Version 3.8 / CasADi version 3.5.5
+
 -
-Author: Elena Malz, elena@malz.me
-Chalmers, Goeteborg Sweden, 2017, (2020 updated from casadi 2.4.1 to 3.5.5)
+@Author: Elena Malz, elena@malz.me
+Chalmers, Goeteborg Sweden, 2017
+(2020: updated from Python 2.7/casADi 2.4.1 to Python 3.8/casADi 3.5.5)
 -
 '''
 

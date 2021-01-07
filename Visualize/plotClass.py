@@ -1,10 +1,12 @@
 '''
 PLOT the optimal trajectory of states and inputs
 of the AWE system in pumping mode
-Python Version 2.7 / Casadi version 3.5.5
+Python Version 3.8 / CasADi version 3.5.5
+
 -
 Author: Elena Malz, elena@malz.me
-Chalmers, Goeteborg Sweden, 2017, (2020 updated from casadi 2.4.1 to 3.5.5)
+Chalmers, Goeteborg Sweden, 2017
+(2020: updated from Python 2.7/casADi 2.4.1 to Python 3.8/casADi 3.5.5)
 -
 '''
 import sys
@@ -73,7 +75,7 @@ class plots(object):
         ax.plot([0, opt["Xd",0,0,'q',0]],[0, opt["Xd",0,0,'q',1]],[0,opt["Xd",0,0,'q',2]])
         ax.scatter([opt["Xd",3,0,'q',0]],[opt["Xd",3,0,'q',1]],[opt["Xd",3,0,'q',2]],'g')
         #ax.set_zlim3d(0.8, 1.1)
-        plt.axis('equal')
+        plt.axis('auto')
 
         plt.subplot(2,2,2)
         plt.plot(np.concatenate(opt["Xd",:,:,'q',0]),np.concatenate(opt["Xd",:,:,'q',1]),'-')
@@ -538,7 +540,7 @@ class plots(object):
     def savePDF_all(self,dir = '',name = 'plots.pdf'):
         import matplotlib.backends.backend_pdf
         pdf = matplotlib.backends.backend_pdf.PdfPages(dir + name)
-        for fig in xrange(1, plt.figure().number): ## will open an empty extra figure :(
+        for fig in range(1, plt.figure().number): ## will open an empty extra figure :(
             pdf.savefig( fig )
         pdf.close()
 
