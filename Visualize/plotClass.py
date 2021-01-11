@@ -10,7 +10,6 @@ Chalmers, Goeteborg Sweden, 2017
 -
 '''
 import sys
-sys.path.append(r"/usr/local/casadi-py27-v3.3.0/")
 import casadi as ca
 import casadi.tools as ca
 import numpy as np
