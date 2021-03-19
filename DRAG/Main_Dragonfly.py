@@ -460,8 +460,8 @@ opts = {}
 opts["expand"] = True
 opts["ipopt.max_iter"] = 1000
 opts["ipopt.tol"] = 1e-8
-#opts["ipopt.linear_solver"] = 'ma27'
-#opts["linear_solver"] = 'ma57'  # not really working
+# opts["ipopt.linear_solver"] = 'ma27'
+opts["ipopt.linear_solver"] = 'ma57'  # not really working
 #opts["linear_solver"] = 'ma86' # fine but has troubles with final solve
 
 
@@ -645,6 +645,8 @@ print ("Average Power = ", -opt['Xd',-1,-1,'E']/float(ScalePower)/opt['tf'], "  
 end_time = time.time()
 time_taken = end_time - start_time
 print('Done! The computation took ' + str(time_taken)+ 's.')
+print('If you want to plot the solution, please check out and run  >> Visualize/plot_sol.py << ')
+
 
 # -----------------------
 ## CHECK SOSC

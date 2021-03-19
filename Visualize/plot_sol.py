@@ -10,7 +10,7 @@ Chalmers, Goeteborg Sweden, 2017
 -
 '''
 
-system = 'pump' #or pump
+system = 'drag' #or pump
 
 import sys
 docpath = r"/Users/elena/Documents/Python/PhDprojects/ElenasDragonfly/"
