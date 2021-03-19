@@ -36,9 +36,11 @@ This is a script that computes the optimal trajectory of an AWE system with the 
 
 
 ## Needed software
-* Python 2.7
-* CasADi 3.5.5 (might work with any CasADi > 3.0.0)
+* Python 3.8  (probably works with any Python > 3)
+* CasADi 3.5.5 (might work with any CasADi > 3)
 * (optional) Other linear solves for IPOPT as e.g. MA27
+
+
 
 ## Installation
 You can get the CasADi package at https://web.casadi.org/.
