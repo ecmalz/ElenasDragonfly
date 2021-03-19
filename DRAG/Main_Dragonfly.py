@@ -461,9 +461,7 @@ opts["expand"] = True
 opts["ipopt.max_iter"] = 1000
 opts["ipopt.tol"] = 1e-8
 # opts["ipopt.linear_solver"] = 'ma27'
-opts["ipopt.linear_solver"] = 'ma57'  # not really working
-#opts["linear_solver"] = 'ma86' # fine but has troubles with final solve
-
+# opts["ipopt.linear_solver"] = 'ma57'
 
 #solver = NlpSolver("solver", "ipopt", nlp, opts)
 solver = nlpsol("solver", "ipopt", nlp, opts)
